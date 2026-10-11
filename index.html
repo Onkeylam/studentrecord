@@ -1,0 +1,1258 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>跨裝置學生觀察記錄與報告系統 (旗艦版)</title>
+    <!-- 引入輕量 IndexedDB 庫 Dexie.js 以支援大容量儲存 -->
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
+    <style>
+        :root {
+            --primary: #2b6cb0;
+            --primary-light: #ebf8ff;
+            --bg: #f7fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --accent: #c53030;
+            --text: #2d3748;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 12px; color: var(--text); padding-bottom: 70px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; border: 1px solid var(--border); }
+        h2, h3 { margin-top: 0; color: #1a202c; font-size: 1.1em; }
+        .flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        /* 按鈕樣式組 */
+        .btn { padding: 6px 12px; border-radius: 6px; font-size: 0.85em; font-weight: bold; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 4px; transition: opacity 0.2s; }
+        .btn:active { opacity: 0.8; }
+        .btn-primary { background: #2b6cb0; color: white; }
+        .btn-success { background: #2c7a7b; color: white; }
+        .btn-warning { background: #d69e2e; color: white; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .btn-secondary { background: #4a5568; color: white; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text); }
+
+        /* 工具列分組面板 */
+        .toolbar-group { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+        .toolbar-title { font-size: 0.75em; font-weight: bold; color: #718096; margin-bottom: 6px; text-transform: uppercase; }
+
+        /* 學生卡片區 */
+        .student-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
+            margin: 10px 0;
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .student-card {
+            border: 1px solid var(--border);
+            background: #ffffff;
+            padding: 10px 6px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            position: relative;
+            user-select: none;
+        }
+        .student-card:active { transform: scale(0.96); }
+        .student-card.selected { background: var(--primary-light); border: 2px solid var(--primary); }
+
+        .avatar-circle { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1em; color: white; margin: 2px 0; }
+        .seat-num { font-size: 0.75em; color: #718096; font-weight: bold; }
+        .student-card .name { font-weight: bold; font-size: 0.85em; color: #2d3748; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .student-card .notice-tag { font-size: 0.65em; color: #c53030; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 4px; padding: 1px 3px; margin-top: 3px; display: inline-block; font-weight: bold; }
+        .student-card .report-tag { font-size: 0.65em; color: #2b6cb0; background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 4px; padding: 1px 3px; margin-top: 3px; display: inline-block; font-weight: bold; }
+        .edit-stu-btn { position: absolute; top: 2px; right: 2px; background: none; border: none; cursor: pointer; font-size: 0.85em; padding: 4px; }
+
+        /* 頁籤選單與標籤 */
+        .tab-menu { display: flex; gap: 6px; border-bottom: 2px solid var(--border); margin-bottom: 10px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+        .tab-btn { padding: 8px 12px; cursor: pointer; background: #e2e8f0; border: none; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 0.85em; flex-shrink: 0; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-content { display: none; flex-wrap: wrap; gap: 8px; }
+        .tab-content.active { display: flex; }
+
+        .tag-btn { padding: 8px 12px; border: 1px solid #cbd5e0; background: white; border-radius: 20px; cursor: pointer; font-size: 0.85em; display: flex; align-items: center; gap: 4px; user-select: none; }
+        .tag-btn:active { transform: scale(0.95); }
+        .tag-btn.selected { background: #319795; color: white; border-color: #319795; }
+
+        /* 程度選擇器 */
+        .severity-selector { display: inline-flex; background: #edf2f7; border-radius: 6px; padding: 2px; font-size: 0.8em; }
+        .severity-btn { padding: 6px 10px; border-radius: 4px; cursor: pointer; border: none; background: transparent; font-size: 0.85em; }
+        .severity-btn.active { background: #c53030; color: white; font-weight: bold; }
+
+        /* 相片上傳區 */
+        .photo-upload-area { background: #f8fafc; border: 1px dashed #cbd5e0; padding: 12px; border-radius: 8px; margin: 10px 0; }
+        .photo-preview { max-width: 100%; max-height: 180px; border-radius: 8px; display: none; object-fit: cover; margin-top: 8px; cursor: pointer; }
+
+        input, select, textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; width: 100%; }
+        button.action-btn { background: #3182ce; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1em; }
+
+        /* 表格區與操作按鈕 */
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.85em; min-width: 700px; }
+        th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: top; }
+        th { background: #edf2f7; }
+        
+        .thumb-img { 
+            max-width: 90px; 
+            max-height: 90px; 
+            border-radius: 6px; 
+            cursor: zoom-in; 
+            border: 1px solid var(--border);
+            transition: transform 0.2s;
+        }
+        .thumb-img:hover { transform: scale(1.05); }
+
+        .badge-severity { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; color: white; }
+        .sev-輕微 { background: #319795; }
+        .sev-中等 { background: #dd6b20; }
+        .sev-嚴重 { background: #e53e3e; }
+
+        .btn-table-edit { background: #3182ce; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; font-weight: bold; margin-bottom: 4px; display: inline-block; }
+        .btn-table-del { background: #e53e3e; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; font-weight: bold; display: inline-block; }
+
+        /* 全班概況矩陣圖卡樣式 */
+        .class-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .class-summary-card {
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+        }
+        .status-level-0 { border-left: 5px solid #38a169; background: #f0fff4; }
+        .status-level-1 { border-left: 5px solid #dd6b20; background: #fffaf0; }
+        .status-level-2 { border-left: 5px solid #e53e3e; background: #fff5f5; }
+
+        .add-class-box { display: none; background: #edf2f7; padding: 10px; border-radius: 8px; margin-top: 8px; border: 1px solid #cbd5e0; }
+
+        .report-preview-box { display: none; background: #fff; border: 2px solid #2b6cb0; padding: 20px; border-radius: 8px; margin-top: 15px; }
+        .report-header { text-align: center; border-bottom: 2px solid #2b6cb0; padding-bottom: 10px; margin-bottom: 15px; }
+        .report-header h2 { margin: 0; font-size: 1.4em; color: #2b6cb0; }
+        .report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; background: #f7fafc; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em; }
+
+        /* 分頁控制樣式 */
+        .pagination-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.85em; }
+        .pagination-buttons { display: flex; gap: 4px; }
+        .page-btn { padding: 4px 8px; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer; }
+        .page-btn.active { background: var(--primary); color: white; font-weight: bold; }
+
+        /* 全螢幕相片放大 Modal */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 9999;
+            left: 0; top: 0;
+            width: 100%; height: 100%;
+            background-color: rgba(0, 0, 0, 0.88);
+            justify-content: center; align-items: center;
+            flex-direction: column; padding: 15px;
+        }
+        .image-modal-content { max-width: 95%; max-height: 85%; border-radius: 8px; object-fit: contain; }
+        .image-modal-caption { color: #ffffff; margin-top: 12px; font-size: 0.95em; text-align: center; background: rgba(255,255,255,0.15); padding: 6px 16px; border-radius: 20px; }
+        .image-modal-close { position: absolute; top: 15px; right: 20px; color: #ffffff; font-size: 32px; font-weight: bold; cursor: pointer; }
+
+        /* 手機版底部導航欄 */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #ffffff;
+            border-top: 1px solid var(--border);
+            padding: 6px 0;
+            justify-content: space-around;
+            z-index: 999;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+        .mobile-nav-item { display: flex; flex-direction: column; align-items: center; font-size: 0.75em; color: #718096; cursor: pointer; border: none; background: none; padding: 4px; }
+        .mobile-nav-item.active { color: var(--primary); font-weight: bold; }
+        .mobile-nav-item span { font-size: 1.3em; }
+
+        @media (min-width: 768px) {
+            body { padding: 20px; padding-bottom: 20px; }
+            .student-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); max-height: 350px; }
+            button.action-btn { width: auto; }
+            .mobile-nav { display: none !important; }
+        }
+
+        @media (max-width: 767px) {
+            .mobile-nav { display: flex; }
+        }
+
+        /* 列印樣式優化 */
+        @media print {
+            .no-print { display: none !important; }
+            body { padding: 0; background: white; }
+            .card { box-shadow: none; border: none; padding: 0; }
+            .report-preview-box { display: block !important; border: none; padding: 0; }
+            .report-grid { grid-template-columns: repeat(2, 1fr); }
+            .thumb-img { max-width: 180px; max-height: 180px; }
+            .image-modal { display: none !important; }
+            tr, .class-summary-card { page-break-inside: avoid; break-inside: avoid; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h2 class="no-print">🏫 學生觀察記錄與報告系統</h2>
+
+    <!-- 1. 選擇班別與學生區塊 -->
+    <div class="card no-print" id="sec-students">
+        <h3>1. 選擇班別與學生</h3>
+
+        <!-- 功能分組工具列：班級管理區 -->
+        <div class="toolbar-group">
+            <div class="toolbar-title">🏫 班級設定與圖示管理</div>
+            <div class="flex">
+                <button class="btn btn-primary" onclick="toggleAddClassBox()">➕ 新增班別</button>
+                <button class="btn btn-danger" onclick="deleteCurrentClass()">🗑️ 刪除班別</button>
+                <button class="btn btn-warning" onclick="resetAllClassesTo30()">🔄 重置學生圖示</button>
+                <button class="btn btn-secondary" onclick="purgeAllSystemData()" style="margin-left:auto;">⚠️ 重置全系統</button>
+            </div>
+        </div>
+
+        <div id="addClassBox" class="add-class-box">
+            <div class="flex">
+                <input type="text" id="newClassNameInput" placeholder="請輸入新班別名稱 (例如: 3A, 4B)" style="flex: 1; padding: 8px;">
+                <button class="btn btn-primary" onclick="confirmAddClass()">確定建立</button>
+                <button class="btn btn-outline" onclick="toggleAddClassBox()">取消</button>
+            </div>
+        </div>
+
+        <!-- 班級選擇與即時搜尋列 -->
+        <div class="flex" style="margin-top: 8px; background: #ebf8ff; padding: 10px; border-radius: 8px; border: 1px solid #bee3f8; gap: 15px;">
+            <label style="font-weight:bold; font-size:0.95em; color: #2b6cb0;">🏫 登記紀錄班別：
+                <select id="classFilter" onchange="onClassFilterChange()" style="width: auto; display: inline-block; padding: 6px 16px; font-weight: bold; border-color: #3182ce; font-size:0.95em; cursor:pointer;"></select>
+            </label>
+            <div style="flex: 1; min-width: 180px;">
+                <input type="text" id="searchStudentInput" placeholder="🔍 搜尋學生姓名 / 座號..." oninput="renderStudents()" style="padding: 6px 10px; font-size:0.85em;">
+            </div>
+        </div>
+
+        <div class="student-grid" id="studentGrid"></div>
+    </div>
+
+    <!-- 2. 特徵標籤與程度設定 -->
+    <div class="card no-print" id="sec-tags">
+        <h3>2. 觀察行為特徵標籤</h3>
+        <div class="flex" style="margin-bottom: 10px;">
+            <label style="font-size:0.85em; font-weight:bold;">行為程度：</label>
+            <div class="severity-selector">
+                <button type="button" class="severity-btn" onclick="setGlobalSeverity('輕微', this)">輕微</button>
+                <button type="button" class="severity-btn active" onclick="setGlobalSeverity('中等', this)">中等</button>
+                <button type="button" class="severity-btn" onclick="setGlobalSeverity('嚴重/高頻', this)">嚴重/高頻</button>
+            </div>
+        </div>
+
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchTab('exam_marking')">📝 測驗批改</button>
+            <button class="tab-btn" onclick="switchTab('spld')">📖 讀寫/鏡像</button>
+            <button class="tab-btn" onclick="switchTab('social')">🤝 社交技巧</button>
+            <button class="tab-btn" onclick="switchTab('adhd')">⚡ 專注表現</button>
+            <button class="tab-btn" onclick="switchTab('asd')">🧩 言語感官</button>
+            <button class="tab-btn" onclick="switchTab('ef')">🧠 執行/理解</button>
+            <button class="tab-btn" onclick="switchTab('custom_tags')">✍️ 自訂關注</button>
+        </div>
+
+        <div id="exam_marking" class="tab-content active">
+            <div class="tag-btn" onclick="toggleTag(this, '試卷後半段鏡像字飆升')">試卷後半段鏡像字飆升</div>
+            <div class="tag-btn" onclick="toggleTag(this, '整頁/整大題遺漏未作答')">整頁 / 整大題遺漏未作答</div>
+            <div class="tag-btn" onclick="toggleTag(this, '看錯題目符號/指示')">看錯題目符號 / 指示</div>
+            <div class="tag-btn" onclick="toggleTag(this, '試卷有強烈塗黑/擦破痕跡')">試卷有強烈塗黑 / 擦破痕跡</div>
+        </div>
+
+        <div id="spld" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, 'b/d/p/q 鏡像字')">b/d/p/q 鏡像字</div>
+            <div class="tag-btn" onclick="toggleTag(this, '中文部件顛倒 / 倒置')">中文部件顛倒 / 倒置</div>
+            <div class="tag-btn" onclick="toggleTag(this, '跳行 / 跳字 / 漏字')">跳行 / 跳字 / 漏字</div>
+            <div class="tag-btn" onclick="toggleTag(this, '抄寫速度極慢')">抄寫速度極慢</div>
+        </div>
+
+        <div id="social" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '難以融入小組 / 經常被孤立')">難以融入小組 / 經常被孤立</div>
+            <div class="tag-btn" onclick="toggleTag(this, '不願分享 / 獨佔教具')">不願分享 / 獨佔教具</div>
+            <div class="tag-btn" onclick="toggleTag(this, '說話欠禮貌 / 直言冒犯')">說話欠禮貌 / 直言冒犯</div>
+        </div>
+
+        <div id="adhd" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '多嘴 / 頻繁說話')">多嘴 / 頻繁說話</div>
+            <div class="tag-btn" onclick="toggleTag(this, '打斷話語 / 搶先回答')">打斷話語 / 搶先回答</div>
+            <div class="tag-btn" onclick="toggleTag(this, '無法維持專注 (>10分鐘)')">無法維持專注 (>10分鐘)</div>
+        </div>
+
+        <div id="asd" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '自言自語 / 發出聲音')">自言自語 / 發出聲音</div>
+            <div class="tag-btn" onclick="toggleTag(this, '重複特定字詞 / 鸚鵡學舌')">重複特定字詞 / 鸚鵡學舌</div>
+        </div>
+
+        <div id="ef" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '理解力較弱 / 指示理解困難')">理解力較弱 / 指示理解困難</div>
+            <div class="tag-btn" onclick="toggleTag(this, '忘記多重指令')">忘記多重指令</div>
+            <div class="tag-btn" onclick="toggleTag(this, '遲遲無法開始作答')">遲遲無法開始作答</div>
+        </div>
+
+        <div id="custom_tags" class="tab-content" style="flex-direction: column; align-items: flex-start; gap: 10px; width: 100%;">
+            <div class="flex" style="width: 100%;">
+                <input type="text" id="customTagInput" placeholder="請輸入自由關注事項 (例如: 經常遺漏帶課本)" style="flex: 1; padding: 8px;">
+                <button type="button" class="btn btn-success" onclick="addCustomTag()">➕ 新增事項</button>
+            </div>
+            <div id="customTagContainer" class="flex" style="flex-wrap: wrap; width: 100%;"></div>
+        </div>
+    </div>
+
+    <!-- 3. 情境與照片上傳區 -->
+    <div class="card no-print" id="sec-photo">
+        <h3>3. 情境與照片佐證</h3>
+        <div class="flex" style="margin-bottom: 8px;">
+            <div style="flex:1;">
+                <label style="font-size:0.85em; font-weight:bold;">科目：</label>
+                <select id="subject" style="margin-top:4px;">
+                    <option value="英文">英文</option>
+                    <option value="中文">中文</option>
+                    <option value="數學">數學</option>
+                    <option value="其他">其他</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label style="font-size:0.85em; font-weight:bold;">情境：</label>
+                <select id="trigger" style="margin-top:4px;">
+                    <option value="批改測驗/考試卷">批改測驗/考試卷</option>
+                    <option value="批改默書/隨堂小測">批改默書/隨堂小測</option>
+                    <option value="批改日常功課/工作紙">批改日常功課/工作紙</option>
+                    <option value="課堂觀察/小組活動">課堂觀察/小組活動</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="photo-upload-area">
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷相片 (點擊圖片可預覽大圖)：</label>
+            <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+            <img id="photoPreview" class="photo-preview" alt="相片預覽" onclick="openImageModal(this.src, '預覽照片')">
+            <input type="text" id="photoNoteInput" placeholder="照片佐證說明 (例: 第3題 bed 寫成 deb)" style="margin-top:8px; display:none;">
+        </div>
+
+        <textarea id="notes" rows="2" placeholder="補充說明 (例: 今天狀態安靜/情緒較急躁)"></textarea>
+
+        <div style="margin-top: 12px;">
+            <button class="action-btn" onclick="saveRecord()">💾 儲存觀察紀錄</button>
+        </div>
+    </div>
+
+    <!-- 4. 觀察紀錄檢視與生成報告區 -->
+    <div class="card" id="sec-records">
+        <h3>📋 觀察紀錄檢視與報告生成</h3>
+
+        <!-- 功能分組工具列：報告與備份管理區 -->
+        <div class="no-print toolbar-group">
+            <div class="toolbar-title">📄 報告生成與資料維護工具</div>
+            <div class="flex">
+                <button class="btn btn-warning" onclick="generateClassOverviewReport()">📊 本班觀察總覽</button>
+                <button class="btn btn-primary" onclick="generateReport()">📄 單人觀察報告</button>
+                <button class="btn btn-success" onclick="exportData()">💾 匯出 JSON</button>
+                <button class="btn btn-success" onclick="exportCSV()">📊 匯出 CSV (Excel)</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('importFileInput').click()">📂 匯入 JSON 備份</button>
+                <input type="file" id="importFileInput" accept=".json" onchange="importData(event)" style="display:none;">
+                <button class="btn btn-outline" onclick="window.print()" style="margin-left:auto;">🖨️ 列印 / 存為 PDF</button>
+            </div>
+        </div>
+
+        <!-- 專屬報告區班別選擇器與篩選器 -->
+        <div class="flex no-print" style="margin-bottom: 12px; background: #f7fafc; padding: 10px; border-radius: 8px; border: 2px dashed #cbd5e0; gap: 12px;">
+            <label style="font-weight:bold; font-size:0.85em; color: #2d3748;">📌 選擇班別：
+                <select id="reportClassFilter" onchange="onReportClassFilterChange()" style="width: auto; display: inline-block; padding: 4px 10px; font-weight: bold; border-color: #2b6cb0; font-size:0.85em; cursor:pointer; background: #ffffff;">
+                    <option value="">-- 請選擇班別 --</option>
+                </select>
+            </label>
+            <label style="font-weight:bold; font-size:0.85em;">科目：
+                <select id="filterSubject" onchange="loadRecords()" style="width:auto; padding:4px 8px;">
+                    <option value="ALL">全部科目</option>
+                    <option value="英文">英文</option>
+                    <option value="中文">中文</option>
+                    <option value="數學">數學</option>
+                    <option value="其他">其他</option>
+                </select>
+            </label>
+            <label style="font-weight:bold; font-size:0.85em;">程度：
+                <select id="filterSeverity" onchange="loadRecords()" style="width:auto; padding:4px 8px;">
+                    <option value="ALL">全部程度</option>
+                    <option value="輕微">輕微</option>
+                    <option value="中等">中等</option>
+                    <option value="嚴重">嚴重/高頻</option>
+                </select>
+            </label>
+            <button class="btn btn-danger" onclick="batchDeleteRecords()" style="margin-left:auto;">🗑️ 批量刪除勾選項</button>
+        </div>
+
+        <div id="studentProfileHeader" style="background:#ebf8ff; border:1px solid #bee3f8; border-radius:8px; padding:10px; margin-bottom:10px;">
+            <b id="profileName" style="color:#2b6cb0; font-size:0.95em;">🔍 請先在上方選擇班別</b>
+            <div id="profileReportNote" style="font-size:0.8em; color:#2c5282; margin-top:2px;"></div>
+        </div>
+
+        <div class="table-wrapper no-print">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 4%; text-align:center;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th>
+                        <th style="width: 14%;">時間</th>
+                        <th style="width: 12%;">學生</th>
+                        <th style="width: 14%;">情境</th>
+                        <th style="width: 22%;">觀察特徵</th>
+                        <th style="width: 14%;">照片證明 (點擊放大)</th>
+                        <th style="width: 12%;">備註</th>
+                        <th style="width: 8%; text-align:center;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="recordTableBody">
+                    <tr><td colspan="8" style="text-align:center; padding:20px; color:#718096;">👈 請先在上方選擇班別以顯示檢視資料</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-controls no-print" id="paginationBox" style="display:none;">
+            <div>
+                每頁顯示：
+                <select id="pageSizeSelect" onchange="currentPage=1; loadRecords();" style="width:auto; padding:2px 6px;">
+                    <option value="10">10 筆</option>
+                    <option value="20">20 筆</option>
+                    <option value="50">50 筆</option>
+                </select>
+            </div>
+            <div class="pagination-buttons" id="paginationButtons"></div>
+        </div>
+
+        <div id="reportBox" class="report-preview-box"></div>
+    </div>
+</div>
+
+<div id="imageModal" class="image-modal" onclick="closeImageModal()">
+    <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
+    <img id="imageModalImg" class="image-modal-content" src="" alt="放大照片">
+    <div id="imageModalCaption" class="image-modal-caption"></div>
+</div>
+
+<div class="mobile-nav no-print">
+    <button class="mobile-nav-item active" onclick="mobileScrollTo('sec-students', this)">
+        <span>👶</span>學生
+    </button>
+    <button class="mobile-nav-item" onclick="mobileScrollTo('sec-tags', this)">
+        <span>🏷️</span>標籤
+    </button>
+    <button class="mobile-nav-item" onclick="mobileScrollTo('sec-photo', this)">
+        <span>📷</span>拍照
+    </button>
+    <button class="mobile-nav-item" onclick="mobileScrollTo('sec-records', this)">
+        <span>📄</span>報告
+    </button>
+</div>
+
+<script>
+    /* 1. 初始化 IndexedDB 大容量資料庫 (Dexie.js) */
+    const db = new Dexie("SenObserveDB");
+    db.version(1).stores({
+        records: 'id, studentId, time, context'
+    });
+
+    const avatarColors = ['#319795', '#3182ce', '#805ad5', '#dd6b20', '#d69e2e', '#e53e3e', '#38a169'];
+    const icons = ['🚀', '🧩', '✏️', '⚡', '📖', '🧠', '🤝', '⭐', '🎨', '🔍'];
+
+    let classList = JSON.parse(localStorage.getItem('sen_class_list')) || ['1A', '1B', '2A'];
+    let customTagList = JSON.parse(localStorage.getItem('sen_custom_tags')) || [];
+    
+    function generateStudentsForClass(className) {
+        const list = [];
+        for (let i = 1; i <= 30; i++) {
+            const numStr = i < 10 ? `0${i}` : `${i}`;
+            list.push({
+                id: `S_${className}_${numStr}`,
+                seatNum: `${numStr}號`,
+                name: `${className}-${numStr}`,
+                class: className,
+                hasReport: false,
+                reportType: '',
+                reportNote: '',
+                color: avatarColors[i % avatarColors.length],
+                icon: icons[i % icons.length]
+            });
+        }
+        return list;
+    }
+
+    function generateDefaultStudents() {
+        let allStudents = [];
+        classList.forEach(c => {
+            allStudents = allStudents.concat(generateStudentsForClass(c));
+        });
+        return allStudents;
+    }
+
+    let studentsDetail = JSON.parse(localStorage.getItem('sen_students_list')) || generateDefaultStudents();
+    let currentSelectedStudentId = 'ALL';
+    let currentSeverity = '中等';
+    let selectedTags = new Map();
+    let currentBase64Image = "";
+    let currentPage = 1;
+
+    function saveAllSettings() {
+        localStorage.setItem('sen_class_list', JSON.stringify(classList));
+        localStorage.setItem('sen_students_list', JSON.stringify(studentsDetail));
+        localStorage.setItem('sen_custom_tags', JSON.stringify(customTagList));
+    }
+
+    function updateClassFilterDropdown() {
+        const select = document.getElementById('classFilter');
+        const reportSelect = document.getElementById('reportClassFilter');
+        
+        select.innerHTML = '';
+        reportSelect.innerHTML = '<option value="">-- 請選擇班別 --</option>';
+
+        classList.forEach(c => {
+            select.innerHTML += `<option value="${c}">${c} 班</option>`;
+            reportSelect.innerHTML += `<option value="${c}">${c} 班</option>`;
+        });
+    }
+
+    function onClassFilterChange() {
+        currentSelectedStudentId = 'ALL'; 
+        renderStudents();
+    }
+
+    function onReportClassFilterChange() {
+        currentSelectedStudentId = 'ALL';
+        currentPage = 1;
+        document.getElementById('reportBox').style.display = 'none';
+        loadRecords();
+
+        const cls = document.getElementById('reportClassFilter').value;
+        const profileName = document.getElementById('profileName');
+        const profileNote = document.getElementById('profileReportNote');
+
+        if (!cls) {
+            profileName.innerText = '🔍 請先在上方選擇班別';
+            profileNote.innerText = '';
+        } else {
+            profileName.innerText = `🔍 調閱：[${cls} 班] 所有學生`;
+            profileNote.innerText = '';
+        }
+    }
+
+    function toggleAddClassBox() {
+        const box = document.getElementById('addClassBox');
+        box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function confirmAddClass() {
+        const input = document.getElementById('newClassNameInput');
+        const newC = input.value.trim().toUpperCase();
+
+        if (!newC) { alert('請輸入班別名稱！'); return; }
+        if (classList.includes(newC)) { alert(`班別 ${newC} 已經存在！`); return; }
+
+        classList.push(newC);
+        studentsDetail = studentsDetail.concat(generateStudentsForClass(newC));
+        saveAllSettings();
+        updateClassFilterDropdown();
+        
+        document.getElementById('classFilter').value = newC;
+        onClassFilterChange();
+        
+        input.value = '';
+        toggleAddClassBox();
+        alert(`✅ 成功新增 ${newC} 班，並已生成 30 個學生 Icon！`);
+    }
+
+    async function deleteCurrentClass() {
+        const currentClass = document.getElementById('classFilter').value;
+        if (!currentClass) { alert('沒有可刪除的班別！'); return; }
+
+        if (confirm(`⚠️ 確定要刪除整個【${currentClass} 班】嗎？\n該班別的所有學生設定與觀察紀錄將會一併被移除！`)) {
+            classList = classList.filter(c => c !== currentClass);
+            
+            const deleteTargetStudentIds = studentsDetail.filter(s => s.class === currentClass).map(s => s.id);
+            await db.records.where('studentId').anyOf(deleteTargetStudentIds).delete();
+
+            studentsDetail = studentsDetail.filter(s => s.class !== currentClass);
+
+            saveAllSettings();
+            updateClassFilterDropdown();
+
+            if (classList.length > 0) {
+                document.getElementById('classFilter').value = classList[0];
+                onClassFilterChange();
+            } else {
+                document.getElementById('studentGrid').innerHTML = '';
+            }
+
+            alert(`🗑️ 班別【${currentClass} 班】已成功刪除！`);
+        }
+    }
+
+    function resetAllClassesTo30() {
+        if (confirm('是否重置並補滿現有所有班別的 30 個 Icon？')) {
+            studentsDetail = generateDefaultStudents();
+            saveAllSettings();
+            renderStudents();
+        }
+    }
+
+    async function purgeAllSystemData() {
+        const confirmCode = prompt("⚠️ 高風險操作！清空後資料不可恢復。\n如確定要清空全系統所有班別與紀錄，請在下方輸入 「DELETE」：");
+        if (confirmCode === 'DELETE') {
+            await db.records.clear();
+            localStorage.clear();
+            classList = ['1A', '1B', '2A'];
+            studentsDetail = generateDefaultStudents();
+            customTagList = [];
+            saveAllSettings();
+            updateClassFilterDropdown();
+            onClassFilterChange();
+            renderCustomTags();
+            alert("🧹 系統所有資料已成功重置！");
+        } else if (confirmCode !== null) {
+            alert("驗證碼不正確，取消清空操作。");
+        }
+    }
+
+    function renderStudents() {
+        const cls = document.getElementById('classFilter').value;
+        const grid = document.getElementById('studentGrid');
+        const query = (document.getElementById('searchStudentInput').value || '').trim().toLowerCase();
+        grid.innerHTML = '';
+
+        const filtered = studentsDetail.filter(s => {
+            const matchClass = s.class === cls;
+            const matchQuery = !query || s.name.toLowerCase().includes(query) || s.seatNum.includes(query);
+            return matchClass && matchQuery;
+        });
+
+        filtered.forEach(stu => {
+            const card = document.createElement('div');
+            card.className = `student-card ${currentSelectedStudentId === stu.id ? 'selected' : ''}`;
+            
+            let tagHtml = `<div class="notice-tag">需多加注意</div>`;
+            if (stu.hasReport && stu.reportType) {
+                tagHtml = `<div class="report-tag">📄 ${stu.reportType}</div>`;
+            }
+
+            card.innerHTML = `
+                <button class="edit-stu-btn" onclick="editStudent('${stu.id}', event)">✏️</button>
+                <div class="seat-num">${stu.seatNum}</div>
+                <div class="avatar-circle" style="background-color: ${stu.color};">${stu.icon}</div>
+                <div class="name">${stu.name}</div>
+                ${tagHtml}
+            `;
+            card.onclick = () => filterStudent(stu.id);
+            grid.appendChild(card);
+        });
+    }
+
+    function filterStudent(id) {
+        currentSelectedStudentId = id;
+        renderStudents();
+        
+        const stu = studentsDetail.find(s => s.id === id);
+        if (stu) {
+            document.getElementById('reportClassFilter').value = stu.class;
+        }
+
+        currentPage = 1;
+        loadRecords();
+        document.getElementById('reportBox').style.display = 'none';
+
+        const profileName = document.getElementById('profileName');
+        const profileNote = document.getElementById('profileReportNote');
+
+        if (id === 'ALL') {
+            const cls = document.getElementById('reportClassFilter').value;
+            profileName.innerText = cls ? `🔍 調閱：[${cls} 班] 所有學生` : '🔍 請先在上方選擇班別';
+            profileNote.innerText = '';
+        } else {
+            if (stu) {
+                profileName.innerText = `🔍 調閱：[${stu.class}] ${stu.name} (${stu.seatNum})`;
+                if (stu.hasReport) {
+                    profileNote.innerText = `📋 評估報告：${stu.reportType || '已確診'} ${stu.reportNote ? '| 建議：' + stu.reportNote : ''}`;
+                } else {
+                    profileNote.innerText = '⚠️ 狀態：需多加注意學生';
+                }
+            }
+        }
+    }
+
+    function editStudent(id, e) {
+        e.stopPropagation();
+        const stu = studentsDetail.find(s => s.id === id);
+        if (!stu) return;
+
+        const newName = prompt(`修改姓名：`, stu.name);
+        if (newName) stu.name = newName;
+
+        const hasRep = confirm(`該學生「${stu.name}」是否已有正式評估報告？`);
+        stu.hasReport = hasRep;
+
+        if (hasRep) {
+            const repType = prompt(`請輸入報告類型 (例: SpLD / ADHD / ASD)：`, stu.reportType || 'SpLD');
+            const repNote = prompt(`請輸入調適事項 (例: 加時20% / 放大試卷)：`, stu.reportNote || '');
+            stu.reportType = repType || '已診斷';
+            stu.reportNote = repNote || '';
+        }
+
+        saveAllSettings();
+        renderStudents();
+        filterStudent(id);
+    }
+
+    function setGlobalSeverity(sev, btn) {
+        currentSeverity = sev;
+        document.querySelectorAll('.severity-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+    }
+
+    function toggleTag(el, tagText) {
+        if (selectedTags.has(tagText)) {
+            selectedTags.delete(tagText);
+            el.classList.remove('selected');
+        } else {
+            selectedTags.set(tagText, currentSeverity);
+            el.classList.add('selected');
+        }
+    }
+
+    function addCustomTag() {
+        const input = document.getElementById('customTagInput');
+        const text = input.value.trim();
+        if (!text) { alert('請輸入自訂關注事項！'); return; }
+        if (!customTagList.includes(text)) {
+            customTagList.push(text);
+            saveAllSettings();
+            renderCustomTags();
+        }
+        input.value = '';
+    }
+
+    function renderCustomTags() {
+        const container = document.getElementById('customTagContainer');
+        container.innerHTML = '';
+        customTagList.forEach(text => {
+            const div = document.createElement('div');
+            div.className = `tag-btn ${selectedTags.has(text) ? 'selected' : ''}`;
+            div.innerText = text;
+            div.onclick = function() { toggleTag(this, text); };
+            container.appendChild(div);
+        });
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    function handlePhoto(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const max_size = 1200;
+                let width = img.width, height = img.height;
+                if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
+                else { if (height > max_size) { width *= max_size / height; height = max_size; } }
+
+                canvas.width = width; canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                currentBase64Image = canvas.toDataURL('image/jpeg', 0.85);
+                
+                document.getElementById('photoPreview').src = currentBase64Image;
+                document.getElementById('photoPreview').style.display = 'block';
+                document.getElementById('photoNoteInput').style.display = 'block';
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function saveRecord() {
+        if (currentSelectedStudentId === 'ALL') {
+            alert('請先點擊第 1 部分選擇一位特定學生！');
+            return;
+        }
+
+        const now = new Date().toLocaleString('zh-HK', { hour12: false });
+        const subject = document.getElementById('subject').value;
+        const trigger = document.getElementById('trigger').value;
+        const photoNote = document.getElementById('photoNoteInput').value.trim();
+        const notes = document.getElementById('notes').value.trim();
+
+        const tagList = [];
+        selectedTags.forEach((sev, tag) => {
+            tagList.push({ tag: tag, severity: sev });
+        });
+
+        const newRecord = {
+            id: 'REC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            time: now,
+            studentId: currentSelectedStudentId,
+            context: `${subject} (${trigger})`,
+            subject: subject,
+            tags: tagList,
+            image: currentBase64Image,
+            photoNote: photoNote,
+            notes: notes
+        };
+
+        await db.records.add(newRecord);
+
+        document.getElementById('notes').value = '';
+        document.getElementById('photoInput').value = '';
+        document.getElementById('photoNoteInput').value = '';
+        document.getElementById('photoPreview').style.display = 'none';
+        document.getElementById('photoNoteInput').style.display = 'none';
+        currentBase64Image = "";
+        selectedTags.clear();
+        document.querySelectorAll('.tag-btn').forEach(btn => btn.classList.remove('selected'));
+
+        const stuObj = studentsDetail.find(s => s.id === currentSelectedStudentId);
+        if (stuObj && document.getElementById('reportClassFilter').value === stuObj.class) {
+            loadRecords();
+        }
+
+        alert('觀察紀錄已成功儲存至大容量資料庫！');
+    }
+
+    async function getFilteredRecords() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) return [];
+
+        const allRecords = await db.records.toArray();
+        const filterSub = document.getElementById('filterSubject').value;
+        const filterSev = document.getElementById('filterSeverity').value;
+
+        return allRecords.filter(r => {
+            const stuObj = studentsDetail.find(s => s.id === r.studentId);
+            const classMatch = (stuObj && stuObj.class === cls);
+            const studentMatch = (currentSelectedStudentId === 'ALL') || (r.studentId === currentSelectedStudentId);
+            const subjectMatch = (filterSub === 'ALL') || (r.context && r.context.startsWith(filterSub));
+            
+            let severityMatch = true;
+            if (filterSev !== 'ALL') {
+                severityMatch = Array.isArray(r.tags) && r.tags.some(t => t.severity.includes(filterSev));
+            }
+
+            return classMatch && studentMatch && subjectMatch && severityMatch;
+        }).sort((a,b) => b.id.localeCompare(a.id));
+    }
+
+    async function loadRecords() {
+        const tbody = document.getElementById('recordTableBody');
+        const paginationBox = document.getElementById('paginationBox');
+        tbody.innerHTML = '';
+
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#718096;">👈 請先在上方選擇班別以顯示檢視資料</td></tr>';
+            paginationBox.style.display = 'none';
+            return;
+        }
+
+        let filtered = await getFilteredRecords();
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#718096;">【${cls} 班】目前尚無符合條件的觀察紀錄</td></tr>`;
+            paginationBox.style.display = 'none';
+            return;
+        }
+
+        const pageSize = parseInt(document.getElementById('pageSizeSelect').value || 10);
+        const totalPages = Math.ceil(filtered.length / pageSize);
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const startIdx = (currentPage - 1) * pageSize;
+        const pageRecords = filtered.slice(startIdx, startIdx + pageSize);
+
+        pageRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            const stuObj = studentsDetail.find(s => s.id === r.studentId) || { name: r.studentId, class: '-' };
+            
+            let imgTdHtml = '-';
+            if (r.image) {
+                const noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
+                imgTdHtml = `<img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')">`;
+                if (r.photoNote) imgTdHtml += `<br><small style="color:#4a5568;">📷 ${r.photoNote}</small>`;
+            }
+
+            let tagsHtml = '-';
+            if (Array.isArray(r.tags) && r.tags.length > 0) {
+                tagsHtml = r.tags.map(t => {
+                    let sevClass = t.severity.includes('嚴重') ? 'sev-嚴重' : (t.severity === '輕微' ? 'sev-輕微' : 'sev-中等');
+                    return `• ${t.tag} <span class="badge-severity ${sevClass}">${t.severity}</span>`;
+                }).join('<br>');
+            }
+
+            tr.innerHTML = `
+                <td style="text-align:center;"><input type="checkbox" class="record-checkbox" value="${r.id}"></td>
+                <td><small>${r.time}</small></td>
+                <td><b>${stuObj.name}</b><br><small>[${stuObj.class}]</small></td>
+                <td>${r.context}</td>
+                <td>${tagsHtml}</td>
+                <td>${imgTdHtml}</td>
+                <td>${r.notes || '-'}</td>
+                <td style="text-align:center;">
+                    <button class="btn-table-edit" onclick="editRecord('${r.id}')">✏️ 編輯</button><br>
+                    <button class="btn-table-del" onclick="deleteRecord('${r.id}')">🗑️ 刪除</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        paginationBox.style.display = 'flex';
+        const btnBox = document.getElementById('paginationButtons');
+        btnBox.innerHTML = '';
+        for (let i = 1; i <= totalPages; i++) {
+            btnBox.innerHTML += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        }
+        document.getElementById('selectAllCheckbox').checked = false;
+    }
+
+    function goToPage(p) {
+        currentPage = p;
+        loadRecords();
+    }
+
+    function toggleSelectAll(master) {
+        document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = master.checked);
+    }
+
+    async function batchDeleteRecords() {
+        const checkedBoxes = document.querySelectorAll('.record-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('請先在表格最左側勾選要刪除的紀錄！');
+            return;
+        }
+
+        if (confirm(`確定要一次刪除勾選的 ${checkedBoxes.length} 筆紀錄嗎？（刪除後無法恢復）`)) {
+            const idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
+            await db.records.bulkDelete(idsToDelete);
+            loadRecords();
+            document.getElementById('reportBox').style.display = 'none';
+            alert(`🗑️ 已成功批量刪除 ${idsToDelete.length} 筆紀錄！`);
+        }
+    }
+
+    async function deleteRecord(id) {
+        const target = await db.records.get(id);
+        if (!target) return;
+        const stuObj = studentsDetail.find(s => s.id === target.studentId) || { name: target.studentId };
+
+        if (confirm(`確定要刪除學生「${stuObj.name}」於 ${target.time} 的這筆觀察紀錄嗎？`)) {
+            await db.records.delete(id);
+            loadRecords();
+            document.getElementById('reportBox').style.display = 'none';
+            alert('🗑️ 紀錄已成功刪除！');
+        }
+    }
+
+    async function editRecord(id) {
+        const target = await db.records.get(id);
+        if (!target) return;
+
+        const newNotes = prompt("修改補充說明：", target.notes || "");
+        if (newNotes !== null) {
+            target.notes = newNotes.trim();
+        }
+
+        if (target.image) {
+            const newPhotoNote = prompt("修改照片佐證說明：", target.photoNote || "");
+            if (newPhotoNote !== null) {
+                target.photoNote = newPhotoNote.trim();
+            }
+        }
+
+        await db.records.put(target);
+        loadRecords();
+        document.getElementById('reportBox').style.display = 'none';
+        alert('✏️ 紀錄已成功更新！');
+    }
+
+    function openImageModal(src, caption) {
+        if (!src) return;
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('imageModalImg');
+        const modalCaption = document.getElementById('imageModalCaption');
+
+        modal.style.display = 'flex';
+        modalImg.src = src;
+        modalCaption.innerText = caption || '佐證照片放大檢視';
+    }
+
+    function closeImageModal() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+
+    async function generateClassOverviewReport() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) { alert('請先在上方選擇要檢視的班別！'); return; }
+
+        const allRecords = await db.records.toArray();
+        const reportBox = document.getElementById('reportBox');
+
+        const targetStudents = studentsDetail.filter(s => s.class === cls);
+        const targetClassLabel = `${cls} 班`;
+
+        const globalTagCounts = {};
+        targetStudents.forEach(stu => {
+            const stuRecs = allRecords.filter(r => r.studentId === stu.id);
+            stuRecs.forEach(r => {
+                if (Array.isArray(r.tags)) {
+                    r.tags.forEach(t => {
+                        globalTagCounts[t.tag] = (globalTagCounts[t.tag] || 0) + 1;
+                    });
+                }
+            });
+        });
+
+        const sortedTags = Object.entries(globalTagCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        let topTagsHtml = sortedTags.map(([tag, count]) => `<li><b>${tag}</b>：全班共出現 ${count} 次</li>`).join('') || '<li>尚無觀察紀錄</li>';
+
+        let gridHtml = '';
+        targetStudents.forEach(stu => {
+            const stuRecs = allRecords.filter(r => r.studentId === stu.id);
+            const count = stuRecs.length;
+            
+            let hasSevere = false;
+            stuRecs.forEach(r => {
+                if (Array.isArray(r.tags) && r.tags.some(t => t.severity === '嚴重/高頻')) {
+                    hasSevere = true;
+                }
+            });
+
+            let levelClass = 'status-level-0';
+            let levelLabel = '無紀錄';
+            if (hasSevere || count >= 3) {
+                levelClass = 'status-level-2';
+                levelLabel = '⚠️ 高度關注';
+            } else if (count > 0) {
+                levelClass = 'status-level-1';
+                levelLabel = '🔍 觀察中';
+            }
+
+            gridHtml += `
+                <div class="class-summary-card ${levelClass}" onclick="filterStudent('${stu.id}')">
+                    <div style="font-weight:bold; font-size:0.9em;">${stu.name} (${stu.seatNum})</div>
+                    <div style="font-size:0.75em; color:#4a5568; margin-top:2px;">${levelLabel}</div>
+                    <div style="font-size:0.8em; margin-top:4px;"><b>${count}</b> 次觀察紀錄</div>
+                </div>
+            `;
+        });
+
+        const today = new Date().toLocaleDateString('zh-HK');
+
+        reportBox.innerHTML = `
+            <div class="report-header">
+                <h2>📊 ${targetClassLabel} 全班觀察概況摘要</h2>
+                <p style="font-size:0.85em; color:#718096; margin-top:4px;">列印日期：${today} | 總人數：${targetStudents.length} 人</p>
+            </div>
+
+            <h3>🔥 本班最常出現特徵排行 (Top 5)</h3>
+            <ul>${topTagsHtml}</ul>
+
+            <h3>👶 本班學生狀態矩陣 (點擊可切換至個人)</h3>
+            <div class="class-summary-grid">${gridHtml}</div>
+
+            <div style="margin-top:30px; display:flex; justify-content:space-between; font-size:0.9em;">
+                <div><b>班主任 / 科任老師簽署：</b>__________________</div>
+                <div><b>日期：</b>${today}</div>
+            </div>
+        `;
+
+        reportBox.style.display = 'block';
+        reportBox.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function generateReport() {
+        if (currentSelectedStudentId === 'ALL') {
+            alert('請先在第 1 部分點擊選擇一位特定學生，以生成個人觀察報告！');
+            return;
+        }
+
+        const stu = studentsDetail.find(s => s.id === currentSelectedStudentId);
+        const allRecs = await db.records.toArray();
+        const records = allRecs.filter(r => r.studentId === currentSelectedStudentId);
+        const reportBox = document.getElementById('reportBox');
+
+        const tagCounts = {};
+        let severeCount = 0;
+        records.forEach(r => {
+            if (Array.isArray(r.tags)) {
+                r.tags.forEach(t => {
+                    tagCounts[t.tag] = (tagCounts[t.tag] || 0) + 1;
+                    if (t.severity === '嚴重/高頻') severeCount++;
+                });
+            }
+        });
+
+        let tagSummaryHtml = Object.keys(tagCounts).map(t => `<li><b>${t}</b>：出現 ${tagCounts[t]} 次</li>`).join('') || '<li>暫無特定行為標註</li>';
+
+        let recordsRows = records.map(r => {
+            let tagsText = r.tags.map(t => `${t.tag}(${t.severity})`).join(', ') || '無';
+            let noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
+            let imgHtml = r.image ? `<br><img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')"><br><small>佐證：${r.photoNote || '無說明'}</small>` : '';
+            return `
+                <tr>
+                    <td>${r.time}</td>
+                    <td>${r.context}</td>
+                    <td>${tagsText}</td>
+                    <td>${r.notes || '-'}${imgHtml}</td>
+                </tr>
+            `;
+        }).join('');
+
+        const today = new Date().toLocaleDateString('zh-HK');
+
+        reportBox.innerHTML = `
+            <div class="report-header">
+                <h2>🏫 學生日常課堂觀察與行為紀錄報告</h2>
+                <p style="font-size:0.85em; color:#718096; margin-top:4px;">供教育心理學家 (EP) / 輔導組評估參考</p>
+            </div>
+
+            <div class="report-grid">
+                <div><b>學生姓名/代號：</b>${stu.name}</div>
+                <div><b>班別/座號：</b>${stu.class} (${stu.seatNum})</div>
+                <div><b>報告日期：</b>${today}</div>
+                <div><b>觀察狀態：</b>${stu.hasReport ? stu.reportType + ' (已診斷)' : '需多加注意學生'}</div>
+                ${stu.reportNote ? `<div style="grid-column: span 2;"><b>調適措施：</b>${stu.reportNote}</div>` : ''}
+            </div>
+
+            <h3>📊 行為特徵頻率統計摘要</h3>
+            <ul>${tagSummaryHtml}</ul>
+            <p style="font-size:0.85em; color:#c53030;"><b>高風險標註：</b>累積標註「嚴重/高頻」特徵共 ${severeCount} 次。</p>
+
+            <h3>📝 詳細觀察紀錄清單 (${records.length} 次)</h3>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width:20%;">日期時間</th>
+                        <th style="width:20%;">科目/情境</th>
+                        <th style="width:30%;">觀察行為與程度</th>
+                        <th style="width:30%;">備註與佐證照片</th>
+                    </tr>
+                </thead>
+                <tbody>${recordsRows || '<tr><td colspan="4" style="text-align:center;">尚無詳細紀錄</td></tr>'}</tbody>
+            </table>
+
+            <div style="margin-top:30px; display:flex; justify-content:space-between; font-size:0.9em;">
+                <div><b>觀察教師簽署：</b>__________________</div>
+                <div><b>日期：</b>${today}</div>
+            </div>
+        `;
+
+        reportBox.style.display = 'block';
+        reportBox.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function mobileScrollTo(id, btn) {
+        document.querySelectorAll('.mobile-nav-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const element = document.getElementById(id);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }
+
+    async function exportData() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) { alert('請先在上方選擇要匯出的班別！'); return; }
+
+        const filteredRecords = await getFilteredRecords();
+        if (filteredRecords.length === 0) { alert(`【${cls} 班】目前沒有任何紀錄可匯出！`); return; }
+
+        const dataStr = JSON.stringify(filteredRecords, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${cls}班_紀錄備份_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+    }
+
+    async function exportCSV() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) { alert('請先在上方選擇要匯出的班別！'); return; }
+
+        const filteredRecords = await getFilteredRecords();
+        if (filteredRecords.length === 0) { alert(`【${cls} 班】目前沒有任何紀錄可匯出！`); return; }
+
+        let csvContent = "\uFEFF時間,學生,班別,情境,觀察特徵,補充說明\n";
+        filteredRecords.forEach(r => {
+            const stuObj = studentsDetail.find(s => s.id === r.studentId) || { name: r.studentId, class: '-' };
+            const tagsText = (r.tags || []).map(t => `${t.tag}(${t.severity})`).join('; ');
+            const cleanNotes = (r.notes || '').replace(/"/g, '""');
+            csvContent += `"${r.time}","${stuObj.name}","${stuObj.class}","${r.context}","${tagsText}","${cleanNotes}"\n`;
+        });
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${cls}班_觀察紀錄_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.click();
+    }
+
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const importedRecords = JSON.parse(e.target.result);
+                if (!Array.isArray(importedRecords)) {
+                    alert('匯入格式不符合，請上傳有效的 JSON 備份檔案！');
+                    return;
+                }
+
+                let addedCount = 0;
+                let skippedCount = 0;
+
+                for (let newItem of importedRecords) {
+                    if (!newItem.id) newItem.id = 'REC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+                    const existing = await db.records.get(newItem.id);
+                    if (!existing) {
+                        await db.records.add(newItem);
+                        addedCount++;
+                    } else {
+                        skippedCount++;
+                    }
+                }
+
+                loadRecords();
+                alert(`✅ 匯入完成！成功新增：${addedCount} 筆，跳過重複：${skippedCount} 筆。`);
+            } catch (err) {
+                alert('解析 JSON 檔案失敗，請檢查檔案格式！');
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // 初始化選單
+    updateClassFilterDropdown();
+    onClassFilterChange();
+    renderCustomTags();
+</script>
+
+</body>
+</html>
