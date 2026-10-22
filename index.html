@@ -2,8 +2,8 @@
 <html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>跨裝置學生觀察記錄與報告系統 (旗艦完整版)</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+    <title>跨裝置學生觀察記錄與報告系統 (iOS觸控優化版)</title>
     <!-- 引入輕量 IndexedDB 庫 Dexie.js 以支援大容量儲存 -->
     <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
     <style>
@@ -19,6 +19,8 @@
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 12px; color: var(--text); padding-bottom: 70px; }
+        body.modal-open { overflow: hidden !important; position: fixed; width: 100%; height: 100%; } /* iOS 背景防鎖定 */
+
         .container { max-width: 1200px; margin: 0 auto; }
         .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; border: 1px solid var(--border); }
         h2, h3 { margin-top: 0; color: #1a202c; font-size: 1.1em; }
@@ -92,7 +94,7 @@
 
         /* 相片上傳區 */
         .photo-upload-area { background: #f8fafc; border: 1px dashed #cbd5e0; padding: 12px; border-radius: 8px; margin: 10px 0; }
-        .photo-preview { max-width: 100%; max-height: 180px; border-radius: 8px; display: none; object-fit: cover; margin-top: 8px; cursor: pointer; }
+        .photo-preview { max-width: 100%; max-height: 180px; border-radius: 8px; display: none; object-fit: cover; margin-top: 8px; cursor: pointer; -webkit-touch-callout: none; }
 
         input, select, textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; width: 100%; }
         button.action-btn { background: #3182ce; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1em; }
@@ -110,6 +112,7 @@
             cursor: pointer; 
             border: 1px solid var(--border);
             transition: transform 0.2s;
+            -webkit-touch-callout: none;
         }
 
         .badge-score { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; color: white; }
@@ -154,16 +157,20 @@
         .page-btn { padding: 4px 8px; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer; }
         .page-btn.active { background: var(--primary); color: white; font-weight: bold; }
 
-        /* 全螢幕相片放大 Modal 修復：防止自動關閉，新增專屬關閉按鈕 */
+        /* 專為 iOS / iPad 優化的相片放大 Modal */
         .image-modal {
             display: none;
             position: fixed;
-            z-index: 99999;
+            z-index: 999999;
             left: 0; top: 0;
             width: 100vw; height: 100vh;
             background-color: rgba(0, 0, 0, 0.95);
-            justify-content: center; align-items: center;
-            flex-direction: column; padding: 20px;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 10px;
+            overflow: auto; /* 允許 iOS 內滑動與放大 */
+            -webkit-overflow-scrolling: touch;
         }
         .image-modal-content { 
             max-width: 95%; 
@@ -171,21 +178,31 @@
             border-radius: 8px; 
             object-fit: contain; 
             box-shadow: 0 0 20px rgba(255,255,255,0.2);
+            touch-action: pan-x pan-y pinch-zoom; /* 支援雙指手勢拉開與放大 */
         }
-        .image-modal-caption { color: #ffffff; margin-top: 15px; font-size: 0.95em; text-align: center; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; }
+        .image-modal-caption { 
+            color: #ffffff; 
+            margin-top: 12px; 
+            font-size: 0.9em; 
+            text-align: center; 
+            background: rgba(255,255,255,0.2); 
+            padding: 8px 16px; 
+            border-radius: 20px;
+            max-width: 90%;
+        }
         .image-modal-close-btn { 
-            position: absolute; 
+            position: fixed; 
             top: 20px; right: 20px; 
             background: #e53e3e; 
             color: white; 
-            border: none; 
-            padding: 8px 16px; 
-            font-size: 1em; 
+            border: 2px solid white; 
+            padding: 10px 18px; 
+            font-size: 1.05em; 
             font-weight: bold; 
-            border-radius: 20px; 
+            border-radius: 25px; 
             cursor: pointer; 
-            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
-            z-index: 100000;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.6);
+            z-index: 1000000;
         }
 
         /* 手機版底部導航欄 */
@@ -215,7 +232,7 @@
             .mobile-nav { display: flex; }
         }
 
-        /* 修正後的列印與匯出 PDF 樣式 */
+        /* 列印樣式 */
         @media print {
             .no-print, .card, .mobile-nav, .image-modal { 
                 display: none !important; 
@@ -238,7 +255,7 @@
 <body>
 
 <div class="container">
-    <h2 class="no-print">🏫 學生觀察記錄與報告系統 (支援直接列印 PDF / Excel 匯出)</h2>
+    <h2 class="no-print">🏫 學生觀察記錄與報告系統 (iOS/iPad 手勢優化版)</h2>
 
     <!-- 1. 選擇班別與學生區塊 -->
     <div class="card no-print" id="sec-students">
@@ -433,9 +450,9 @@
         </div>
 
         <div class="photo-upload-area">
-            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷/行為相片 (點擊可穩定放大圖片)：</label>
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷/行為相片 (點擊可拉開與雙指放大)：</label>
             <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
-            <img id="photoPreview" class="photo-preview" alt="相片預覽" onclick="openImageModal(this.src, '預覽照片')">
+            <img id="photoPreview" class="photo-preview" alt="相片預覽">
             <input type="text" id="photoNoteInput" placeholder="照片佐證說明 (例: 第3題 bed 寫成 deb)" style="margin-top:8px; display:none;">
         </div>
 
@@ -457,7 +474,7 @@
                 <button class="btn btn-primary" onclick="generateSimpleReport()">📄 產生簡化版報告</button>
                 <button class="btn btn-primary" onclick="generateFullEPReport()" style="background:#2c5282;">📑 產生 EP 9頁報告</button>
                 <button class="btn btn-pdf" onclick="exportToPDF()">📄 列印 / 儲存為 PDF</button>
-                <button class="btn btn-excel" onclick="exportExcelFile()">📊 匯出 Excel 報表 (.xlsx/.csv)</button>
+                <button class="btn btn-excel" onclick="exportExcelFile()">📊 匯出 Excel 報表 (.xls)</button>
                 <button class="btn btn-success" onclick="exportData()">💾 備份 JSON</button>
                 <button class="btn btn-secondary" onclick="document.getElementById('importFileInput').click()">📂 匯入 JSON</button>
                 <input type="file" id="importFileInput" accept=".json" onchange="importData(event)" style="display:none;">
@@ -523,9 +540,9 @@
     </div>
 </div>
 
-<!-- 修正後的相片放大 Modal：點擊不關閉，需按下右上角 [✕ 關閉視窗] 才關閉 -->
+<!-- iOS / iPad 相案觸控放大模組 (支援雙指放大拉開) -->
 <div id="imageModal" class="image-modal">
-    <button type="button" class="image-modal-close-btn" onclick="closeImageModal()">✕ 關閉視窗</button>
+    <button type="button" class="image-modal-close-btn" onclick="closeImageModal(event)">✕ 關閉相片</button>
     <img id="imageModalImg" class="image-modal-content" src="" alt="放大照片">
     <div id="imageModalCaption" class="image-modal-caption"></div>
 </div>
@@ -546,7 +563,7 @@
 </div>
 
 <script>
-    /* 1. 初始化 IndexedDB 大容量資料庫 (Dexie.js) */
+    /* 初始化 IndexedDB 資料庫 */
     const db = new Dexie("SenObserveDB");
     db.version(3).stores({
         records: 'id, studentId, time, context'
@@ -880,8 +897,11 @@
                 ctx.drawImage(img, 0, 0, width, height);
                 currentBase64Image = canvas.toDataURL('image/jpeg', 0.85);
                 
-                document.getElementById('photoPreview').src = currentBase64Image;
-                document.getElementById('photoPreview').style.display = 'block';
+                const previewImg = document.getElementById('photoPreview');
+                previewImg.src = currentBase64Image;
+                previewImg.style.display = 'block';
+                previewImg.onclick = (evt) => openImageModal(currentBase64Image, '相片預覽', evt);
+                
                 document.getElementById('photoNoteInput').style.display = 'block';
             };
             img.src = event.target.result;
@@ -999,7 +1019,7 @@
             let imgTdHtml = '-';
             if (r.image) {
                 const noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
-                imgTdHtml = `<img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')">`;
+                imgTdHtml = `<img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}', event)">`;
                 if (r.photoNote) imgTdHtml += `<br><small style="color:#4a5568;">📷 ${r.photoNote}</small>`;
             }
 
@@ -1101,20 +1121,33 @@
         alert('✏️ 紀錄已成功更新！');
     }
 
-    /* 📸 穩定相片放大：不會點擊一放大就消失，必須按「✕ 關閉視窗」按鈕才關閉 */
-    function openImageModal(src, caption) {
+    /* 📱 iOS/iPad 觸控事件防冒泡與點擊鎖定機制 */
+    function openImageModal(src, caption, event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation(); // 阻擋 iOS 事件傳遞
+        }
         if (!src) return;
+
         const modal = document.getElementById('imageModal');
         const modalImg = document.getElementById('imageModalImg');
         const modalCaption = document.getElementById('imageModalCaption');
 
         modalImg.src = src;
-        modalCaption.innerText = caption || '佐證照片預覽 (可長按或雙指放大網頁)';
+        modalCaption.innerText = caption || '佐證照片放大 (可雙指放大拉開拉遠)';
+        
         modal.style.display = 'flex';
+        document.body.classList.add('modal-open'); // 鎖定 iOS 背景
     }
 
-    function closeImageModal() {
-        document.getElementById('imageModal').style.display = 'none';
+    function closeImageModal(event) {
+        if (event) {
+            event.preventDefault();
+            event.stopPropagation();
+        }
+        const modal = document.getElementById('imageModal');
+        modal.style.display = 'none';
+        document.body.classList.remove('modal-open'); // 解除 iOS 背景鎖定
     }
 
     /* 📄 🖨️ PDF 匯出 / 直接列印模組 */
@@ -1132,7 +1165,7 @@
         }, 300);
     }
 
-    /* 📊 Excel (.xlsx 格式無縫匯出模組) */
+    /* 📊 Excel 匯出模組 (.xls 相容格式) */
     async function exportExcelFile() {
         const cls = document.getElementById('reportClassFilter').value;
         if (!cls) { alert('請先在上方選擇要匯出的班別！'); return; }
@@ -1399,7 +1432,7 @@
         let recordsRows = records.map(r => {
             let tagsText = r.tags.map(t => `${t.tag}(頻率:${t.freq !== undefined ? t.freq : 2},嚴重:${t.sev !== undefined ? t.sev : 2})`).join(', ') || '無';
             let noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
-            let imgHtml = r.image ? `<br><img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')"><br><small>佐證：${r.photoNote || '無說明'}</small>` : '';
+            let imgHtml = r.image ? `<br><img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}', event)"><br><small>佐證：${r.photoNote || '無說明'}</small>` : '';
             return `
                 <tr>
                     <td>${r.time}</td>
