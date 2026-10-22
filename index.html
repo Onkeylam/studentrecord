@@ -1,593 +1,1547 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html lang="zh-HK">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>學生觀察記錄與報告系統</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Lucide Icons -->
-    <script src="https://unpkg.com/lucide@latest"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>跨裝置學生觀察記錄與報告系統 (旗艦完整版)</title>
+    <!-- 引入輕量 IndexedDB 庫 Dexie.js 以支援大容量儲存 -->
+    <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700&display=swap');
-        body {
-            font-family: 'Noto Sans TC', sans-serif;
+        :root {
+            --primary: #2b6cb0;
+            --primary-light: #ebf8ff;
+            --bg: #f7fafc;
+            --card: #ffffff;
+            --border: #e2e8f0;
+            --accent: #c53030;
+            --text: #2d3748;
         }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 12px; color: var(--text); padding-bottom: 70px; }
+        .container { max-width: 1200px; margin: 0 auto; }
+        .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; border: 1px solid var(--border); }
+        h2, h3 { margin-top: 0; color: #1a202c; font-size: 1.1em; }
+        .flex { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+
+        /* 按鈕樣式組 */
+        .btn { padding: 6px 12px; border-radius: 6px; font-size: 0.85em; font-weight: bold; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: 4px; transition: opacity 0.2s; }
+        .btn:active { opacity: 0.8; }
+        .btn-primary { background: #2b6cb0; color: white; }
+        .btn-success { background: #2c7a7b; color: white; }
+        .btn-excel { background: #1d6f42; color: white; }
+        .btn-pdf { background: #c53030; color: white; }
+        .btn-warning { background: #d69e2e; color: white; }
+        .btn-danger { background: #e53e3e; color: white; }
+        .btn-secondary { background: #4a5568; color: white; }
+        .btn-outline { background: white; border: 1px solid var(--border); color: var(--text); }
+
+        /* 工具列分組面板 */
+        .toolbar-group { background: #f8fafc; border: 1px solid var(--border); border-radius: 8px; padding: 8px 12px; margin-bottom: 10px; }
+        .toolbar-title { font-size: 0.75em; font-weight: bold; color: #718096; margin-bottom: 6px; text-transform: uppercase; }
+
+        /* 學生卡片區 */
+        .student-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(100px, 1fr));
+            gap: 8px;
+            margin: 10px 0;
+            max-height: 280px;
+            overflow-y: auto;
+            padding: 4px;
+        }
+
+        .student-card {
+            border: 1px solid var(--border);
+            background: #ffffff;
+            padding: 10px 6px;
+            border-radius: 10px;
+            cursor: pointer;
+            text-align: center;
+            transition: all 0.2s;
+            position: relative;
+            user-select: none;
+        }
+        .student-card:active { transform: scale(0.96); }
+        .student-card.selected { background: var(--primary-light); border: 2px solid var(--primary); }
+
+        .avatar-circle { width: 38px; height: 38px; border-radius: 50%; display: inline-flex; align-items: center; justify-content: center; font-weight: bold; font-size: 1.1em; color: white; margin: 2px 0; }
+        .seat-num { font-size: 0.75em; color: #718096; font-weight: bold; }
+        .student-card .name { font-weight: bold; font-size: 0.85em; color: #2d3748; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .student-card .notice-tag { font-size: 0.65em; color: #c53030; background: #fff5f5; border: 1px solid #feb2b2; border-radius: 4px; padding: 1px 3px; margin-top: 3px; display: inline-block; font-weight: bold; }
+        .student-card .report-tag { font-size: 0.65em; color: #2b6cb0; background: #ebf8ff; border: 1px solid #90cdf4; border-radius: 4px; padding: 1px 3px; margin-top: 3px; display: inline-block; font-weight: bold; }
+        .edit-stu-btn { position: absolute; top: 2px; right: 2px; background: none; border: none; cursor: pointer; font-size: 0.85em; padding: 4px; }
+
+        /* 頁籤選單與標籤 */
+        .tab-menu { display: flex; gap: 6px; border-bottom: 2px solid var(--border); margin-bottom: 10px; overflow-x: auto; padding-bottom: 4px; -webkit-overflow-scrolling: touch; }
+        .tab-btn { padding: 8px 12px; cursor: pointer; background: #e2e8f0; border: none; border-radius: 8px 8px 0 0; font-weight: bold; font-size: 0.85em; flex-shrink: 0; }
+        .tab-btn.active { background: var(--primary); color: white; }
+        .tab-content { display: none; flex-wrap: wrap; gap: 8px; }
+        .tab-content.active { display: flex; }
+
+        .tag-btn { padding: 8px 12px; border: 1px solid #cbd5e0; background: white; border-radius: 20px; cursor: pointer; font-size: 0.85em; display: flex; align-items: center; gap: 4px; user-select: none; }
+        .tag-btn:active { transform: scale(0.95); }
+        .tag-btn.selected { background: #319795; color: white; border-color: #319795; }
+
+        /* 雙重評分選擇器 */
+        .score-box { background: #edf2f7; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #cbd5e0; }
+        .selector-group { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+        .sel-btn { padding: 4px 8px; border-radius: 4px; cursor: pointer; border: 1px solid #cbd5e0; background: white; font-size: 0.8em; }
+        .sel-btn.active-freq { background: #2b6cb0; color: white; font-weight: bold; border-color: #2b6cb0; }
+        .sel-btn.active-sev { background: #c53030; color: white; font-weight: bold; border-color: #c53030; }
+
+        /* 相片上傳區 */
+        .photo-upload-area { background: #f8fafc; border: 1px dashed #cbd5e0; padding: 12px; border-radius: 8px; margin: 10px 0; }
+        .photo-preview { max-width: 100%; max-height: 180px; border-radius: 8px; display: none; object-fit: cover; margin-top: 8px; cursor: pointer; }
+
+        input, select, textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; width: 100%; }
+        button.action-btn { background: #3182ce; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1em; }
+
+        /* 表格區與操作按鈕 */
+        .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+        table { width: 100%; border-collapse: collapse; margin-top: 8px; font-size: 0.85em; min-width: 700px; }
+        th, td { border: 1px solid var(--border); padding: 8px; text-align: left; vertical-align: top; }
+        th { background: #edf2f7; }
+        
+        .thumb-img { 
+            max-width: 90px; 
+            max-height: 90px; 
+            border-radius: 6px; 
+            cursor: pointer; 
+            border: 1px solid var(--border);
+            transition: transform 0.2s;
+        }
+
+        .badge-score { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; color: white; }
+        .bg-freq { background: #2b6cb0; }
+        .bg-sev { background: #c53030; }
+
+        .btn-table-edit { background: #3182ce; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; font-weight: bold; margin-bottom: 4px; display: inline-block; }
+        .btn-table-del { background: #e53e3e; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; font-weight: bold; display: inline-block; }
+
+        /* 典型事件 ABC 表格 */
+        .abc-box { background: #fffaf0; border: 1px solid #feebc8; border-radius: 8px; padding: 12px; margin-top: 10px; }
+        .abc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 8px; }
+
+        /* 全班概況矩陣圖卡樣式 */
+        .class-summary-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .class-summary-card {
+            border-radius: 8px;
+            padding: 10px;
+            border: 1px solid var(--border);
+            background: #fff;
+            cursor: pointer;
+        }
+        .status-level-0 { border-left: 5px solid #38a169; background: #f0fff4; }
+        .status-level-1 { border-left: 5px solid #dd6b20; background: #fffaf0; }
+        .status-level-2 { border-left: 5px solid #e53e3e; background: #fff5f5; }
+
+        .add-class-box { display: none; background: #edf2f7; padding: 10px; border-radius: 8px; margin-top: 8px; border: 1px solid #cbd5e0; }
+
+        .report-preview-box { display: none; background: #fff; border: 2px solid #2b6cb0; padding: 20px; border-radius: 8px; margin-top: 15px; }
+        .report-header { text-align: center; border-bottom: 2px solid #2b6cb0; padding-bottom: 10px; margin-bottom: 15px; }
+        .report-header h2 { margin: 0; font-size: 1.4em; color: #2b6cb0; }
+        .report-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; background: #f7fafc; padding: 10px; border-radius: 6px; margin-bottom: 15px; font-size: 0.9em; }
+
+        /* 分頁控制樣式 */
+        .pagination-controls { display: flex; justify-content: space-between; align-items: center; margin-top: 10px; font-size: 0.85em; }
+        .pagination-buttons { display: flex; gap: 4px; }
+        .page-btn { padding: 4px 8px; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer; }
+        .page-btn.active { background: var(--primary); color: white; font-weight: bold; }
+
+        /* 全螢幕相片放大 Modal 修復：防止自動關閉，新增專屬關閉按鈕 */
+        .image-modal {
+            display: none;
+            position: fixed;
+            z-index: 99999;
+            left: 0; top: 0;
+            width: 100vw; height: 100vh;
+            background-color: rgba(0, 0, 0, 0.95);
+            justify-content: center; align-items: center;
+            flex-direction: column; padding: 20px;
+        }
+        .image-modal-content { 
+            max-width: 95%; 
+            max-height: 80vh; 
+            border-radius: 8px; 
+            object-fit: contain; 
+            box-shadow: 0 0 20px rgba(255,255,255,0.2);
+        }
+        .image-modal-caption { color: #ffffff; margin-top: 15px; font-size: 0.95em; text-align: center; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; }
+        .image-modal-close-btn { 
+            position: absolute; 
+            top: 20px; right: 20px; 
+            background: #e53e3e; 
+            color: white; 
+            border: none; 
+            padding: 8px 16px; 
+            font-size: 1em; 
+            font-weight: bold; 
+            border-radius: 20px; 
+            cursor: pointer; 
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 100000;
+        }
+
+        /* 手機版底部導航欄 */
+        .mobile-nav {
+            display: none;
+            position: fixed;
+            bottom: 0; left: 0; right: 0;
+            background: #ffffff;
+            border-top: 1px solid var(--border);
+            padding: 6px 0;
+            justify-content: space-around;
+            z-index: 999;
+            box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+        .mobile-nav-item { display: flex; flex-direction: column; align-items: center; font-size: 0.75em; color: #718096; cursor: pointer; border: none; background: none; padding: 4px; }
+        .mobile-nav-item.active { color: var(--primary); font-weight: bold; }
+        .mobile-nav-item span { font-size: 1.3em; }
+
+        @media (min-width: 768px) {
+            body { padding: 20px; padding-bottom: 20px; }
+            .student-grid { grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); max-height: 350px; }
+            button.action-btn { width: auto; }
+            .mobile-nav { display: none !important; }
+        }
+
+        @media (max-width: 767px) {
+            .mobile-nav { display: flex; }
+        }
+
+        /* 修正後的列印與匯出 PDF 樣式 */
         @media print {
-            .no-print { display: none !important; }
-            .print-only { display: block !important; }
-            body { background: white; color: black; }
-            .card { border: none !important; shadow: none !important; }
+            .no-print, .card, .mobile-nav, .image-modal { 
+                display: none !important; 
+            }
+            #sec-records, #reportBox { 
+                display: block !important; 
+                border: none !important; 
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            body { background: white; padding: 0; font-size: 11pt; color: black; }
+            .report-grid { grid-template-columns: repeat(2, 1fr); }
+            .thumb-img { max-width: 180px; max-height: 180px; }
+            tr, .class-summary-card { page-break-inside: avoid; break-inside: avoid; }
+            .ep-page-break { page-break-before: always; margin-top: 20px; }
         }
     </style>
 </head>
-<body class="bg-slate-50 min-h-screen text-slate-800 flex flex-col">
+<body>
 
-    <!-- Header -->
-    <header class="bg-indigo-700 text-white shadow-lg no-print">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex justify-between items-center">
-            <div class="flex items-center space-x-3">
-                <i data-lucide="clipboard-list" class="w-8 h-8"></i>
-                <div>
-                    <h1 class="text-xl font-bold tracking-wide">學生觀察記錄與報告系統</h1>
-                    <p class="text-xs text-indigo-200">Student Observation & Assessment System</p>
-                </div>
-            </div>
-            <div class="flex items-center space-x-3">
-                <button onclick="exportData()" class="flex items-center space-x-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-lg transition shadow-sm">
-                    <i data-lucide="download" class="w-4 h-4"></i>
-                    <span>匯出資料</span>
-                </button>
-                <button onclick="importData()" class="flex items-center space-x-1 bg-indigo-600 hover:bg-indigo-500 text-white text-sm px-3 py-1.5 rounded-lg transition shadow-sm">
-                    <i data-lucide="upload" class="w-4 h-4"></i>
-                    <span>匯入資料</span>
-                </button>
-                <input type="file" id="importFile" class="hidden" accept=".json" onchange="handleImport(event)">
+<div class="container">
+    <h2 class="no-print">🏫 學生觀察記錄與報告系統 (支援直接列印 PDF / Excel 匯出)</h2>
+
+    <!-- 1. 選擇班別與學生區塊 -->
+    <div class="card no-print" id="sec-students">
+        <h3>1. 選擇班別與學生</h3>
+
+        <div class="toolbar-group">
+            <div class="toolbar-title">🏫 班級設定與圖示管理</div>
+            <div class="flex">
+                <button class="btn btn-primary" onclick="toggleAddClassBox()">➕ 新增班別</button>
+                <button class="btn btn-danger" onclick="deleteCurrentClass()">🗑️ 刪除班別</button>
+                <button class="btn btn-warning" onclick="resetAllClassesTo30()">🔄 重置學生圖示</button>
+                <button class="btn btn-secondary" onclick="purgeAllSystemData()" style="margin-left:auto;">⚠️ 重置全系統</button>
             </div>
         </div>
-    </header>
 
-    <!-- Main Container -->
-    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 grid grid-cols-1 lg:grid-cols-12 gap-6">
-
-        <!-- Sidebar: Student List & Controls -->
-        <aside class="lg:col-span-4 space-y-6 no-print">
-            <!-- Student Management Card -->
-            <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-lg font-bold text-slate-800 flex items-center space-x-2">
-                        <i data-lucide="users" class="w-5 h-5 text-indigo-600"></i>
-                        <span>學生名單</span>
-                    </h2>
-                    <button onclick="openAddStudentModal()" class="flex items-center space-x-1 text-sm bg-indigo-50 text-indigo-600 hover:bg-indigo-100 px-2.5 py-1.5 rounded-lg font-medium transition">
-                        <i data-lucide="plus" class="w-4 h-4"></i>
-                        <span>新增學生</span>
-                    </button>
-                </div>
-
-                <!-- Search Input -->
-                <div class="relative mb-4">
-                    <i data-lucide="search" class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"></i>
-                    <input type="text" id="searchInput" oninput="renderStudentList()" placeholder="搜尋學生姓名或學號..." class="w-full pl-9 pr-3 py-2 text-sm bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:bg-white transition">
-                </div>
-
-                <!-- Student List -->
-                <div id="studentList" class="space-y-2 max-h-[500px] overflow-y-auto pr-1">
-                    <!-- Dynamic rendering -->
-                </div>
+        <div id="addClassBox" class="add-class-box">
+            <div class="flex">
+                <input type="text" id="newClassNameInput" placeholder="請輸入新班別名稱 (例如: 3A, 4B)" style="flex: 1; padding: 8px;">
+                <button class="btn btn-primary" onclick="confirmAddClass()">確定建立</button>
+                <button class="btn btn-outline" onclick="toggleAddClassBox()">取消</button>
             </div>
-        </aside>
+        </div>
 
-        <!-- Main Content Area: Record / Report -->
-        <section class="lg:col-span-8 space-y-6">
+        <div class="flex" style="margin-top: 8px; background: #ebf8ff; padding: 10px; border-radius: 8px; border: 1px solid #bee3f8; gap: 15px;">
+            <label style="font-weight:bold; font-size:0.95em; color: #2b6cb0;">🏫 登記紀錄班別：
+                <select id="classFilter" onchange="onClassFilterChange()" style="width: auto; display: inline-block; padding: 6px 16px; font-weight: bold; border-color: #3182ce; font-size:0.95em; cursor:pointer;"></select>
+            </label>
+            <div style="flex: 1; min-width: 180px;">
+                <input type="text" id="searchStudentInput" placeholder="🔍 搜尋學生姓名 / 座號..." oninput="renderStudents()" style="padding: 6px 10px; font-size:0.85em;">
+            </div>
+        </div>
 
-            <!-- Empty State -->
-            <div id="emptyState" class="bg-white rounded-xl shadow-sm border border-slate-200 p-12 text-center text-slate-400">
-                <i data-lucide="user-x" class="w-16 h-16 mx-auto mb-4 text-slate-300"></i>
-                <h3 class="text-lg font-medium text-slate-600">未選擇學生</h3>
-                <p class="text-sm mt-1">請從左側列表中選擇學生，或新增一名學生開始記錄。</p>
+        <div class="student-grid" id="studentGrid"></div>
+    </div>
+
+    <!-- 2. 選擇學科觀察項目與評分矩陣 -->
+    <div class="card no-print" id="sec-tags">
+        <h3>2. 選擇學科觀察項目與評分矩陣</h3>
+
+        <div class="score-box">
+            <div style="font-size:0.85em; font-weight:bold;">📊 選定特徵的評分設定：</div>
+            
+            <div class="selector-group">
+                <span style="font-size:0.8em; font-weight:bold; color:#2b6cb0;">頻率 (0–4)：</span>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(0, this)">0=沒有</button>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(1, this)">1=極少</button>
+                <button type="button" class="sel-btn active-freq" onclick="setGlobalFreq(2, this)">2=偶爾</button>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(3, this)">3=經常</button>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(4, this)">4=每天</button>
             </div>
 
-            <!-- Student Detail Workspace -->
-            <div id="workspace" class="hidden space-y-6">
-
-                <!-- Student Info Card -->
-                <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 flex justify-between items-center">
-                    <div>
-                        <div class="flex items-center space-x-3">
-                            <h2 id="currentStudentName" class="text-2xl font-bold text-slate-800">---</h2>
-                            <span id="currentStudentGrade" class="px-2.5 py-0.5 text-xs font-semibold bg-indigo-50 text-indigo-600 rounded-full">---</span>
-                        </div>
-                        <p class="text-sm text-slate-500 mt-1">學號：<span id="currentStudentId">---</span></p>
-                    </div>
-                    <div class="flex items-center space-x-2 no-print">
-                        <button onclick="printReport()" class="flex items-center space-x-1 text-sm bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 py-2 rounded-lg font-medium transition">
-                            <i data-lucide="printer" class="w-4 h-4"></i>
-                            <span>列印報告</span>
-                        </button>
-                        <button onclick="deleteCurrentStudent()" class="flex items-center space-x-1 text-sm bg-rose-50 hover:bg-rose-100 text-rose-600 px-3 py-2 rounded-lg font-medium transition">
-                            <i data-lucide="trash-2" class="w-4 h-4"></i>
-                            <span>刪除</span>
-                        </button>
-                    </div>
-                </div>
-
-                <!-- Tabs -->
-                <div class="border-b border-slate-200 no-print">
-                    <nav class="flex space-x-8">
-                        <button id="tab-records-btn" onclick="switchTab('records')" class="border-b-2 border-indigo-600 py-3 px-1 text-sm font-semibold text-indigo-600 flex items-center space-x-2">
-                            <i data-lucide="file-text" class="w-4 h-4"></i>
-                            <span>觀察紀錄條目</span>
-                        </button>
-                        <button id="tab-report-btn" onclick="switchTab('report')" class="border-b-2 border-transparent py-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300 flex items-center space-x-2">
-                            <i data-lucide="award" class="w-4 h-4"></i>
-                            <span>綜合評估報告</span>
-                        </button>
-                    </nav>
-                </div>
-
-                <!-- Tab Content: Observation Records -->
-                <div id="tab-records" class="space-y-6">
-                    <!-- New Record Input Box -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5 no-print">
-                        <h3 class="text-sm font-bold text-slate-700 mb-3 flex items-center space-x-1.5">
-                            <i data-lucide="plus-circle" class="w-4 h-4 text-indigo-600"></i>
-                            <span>新增觀察記錄</span>
-                        </h3>
-                        <div class="space-y-3">
-                            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                                <div>
-                                    <label class="block text-xs font-medium text-slate-500 mb-1">日期</label>
-                                    <input type="date" id="recordDate" class="w-full text-sm border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                                </div>
-                                <div>
-                                    <label class="block text-xs font-medium text-slate-500 mb-1">觀察類別</label>
-                                    <select id="recordCategory" class="w-full text-sm border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                                        <option value="學習態度">學習態度</option>
-                                        <option value="社交互動">社交互動</option>
-                                        <option value="情緒表現">情緒表現</option>
-                                        <option value="生活習慣">生活習慣</option>
-                                        <option value="特殊表現">特殊表現</option>
-                                    </select>
-                                </div>
-                            </div>
-                            <div>
-                                <label class="block text-xs font-medium text-slate-500 mb-1">觀察內容說明</label>
-                                <textarea id="recordContent" rows="3" placeholder="請詳細記錄觀察到的具體行為、情境與事件..." class="w-full text-sm border border-slate-200 rounded-lg p-2 focus:ring-2 focus:ring-indigo-500 focus:outline-none"></textarea>
-                            </div>
-                            <div class="flex justify-end">
-                                <button onclick="addRecord()" class="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-2 rounded-lg font-medium transition flex items-center space-x-1">
-                                    <i data-lucide="save" class="w-4 h-4"></i>
-                                    <span>儲存紀錄</span>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-
-                    <!-- Records History List -->
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-5">
-                        <h3 class="text-sm font-bold text-slate-700 mb-4 flex items-center space-x-1.5">
-                            <i data-lucide="history" class="w-4 h-4 text-indigo-600"></i>
-                            <span>歷史記錄列表</span>
-                        </h3>
-                        <div id="recordsList" class="space-y-4">
-                            <!-- Dynamic observation records -->
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Tab Content: Comprehensive Report -->
-                <div id="tab-report" class="hidden space-y-6">
-                    <div class="bg-white rounded-xl shadow-sm border border-slate-200 p-6 print-only">
-                        <!-- Report Header -->
-                        <div class="text-center border-b border-slate-200 pb-4 mb-6">
-                            <h1 class="text-2xl font-bold text-slate-900">學生綜合行為與學習觀察報告</h1>
-                            <p class="text-sm text-slate-500 mt-1">評估日期：<span id="reportGeneratedDate">---</span></p>
-                        </div>
-
-                        <!-- Report Body -->
-                        <div class="space-y-6">
-                            <!-- Basic Info Summary -->
-                            <div class="grid grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg border border-slate-100">
-                                <div><span class="text-xs text-slate-400 block">學生姓名</span><span id="repName" class="font-medium text-slate-800">---</span></div>
-                                <div><span class="text-xs text-slate-400 block">學號</span><span id="repId" class="font-medium text-slate-800">---</span></div>
-                                <div><span class="text-xs text-slate-400 block">班級/年級</span><span id="repGrade" class="font-medium text-slate-800">---</span></div>
-                            </div>
-
-                            <!-- Rating Dimensions -->
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 mb-3 border-l-4 border-indigo-600 pl-2">表現向度評估</h3>
-                                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                    <div class="border border-slate-200 p-3 rounded-lg">
-                                        <div class="flex justify-between text-sm font-medium text-slate-700 mb-1">
-                                            <span>學習專注力與態度</span>
-                                            <span id="score1-val" class="text-indigo-600">4 / 5</span>
-                                        </div>
-                                        <input type="range" min="1" max="5" value="4" class="w-full no-print" oninput="updateScore('score1', this.value)">
-                                    </div>
-                                    <div class="border border-slate-200 p-3 rounded-lg">
-                                        <div class="flex justify-between text-sm font-medium text-slate-700 mb-1">
-                                            <span>人際互動與團隊合作</span>
-                                            <span id="score2-val" class="text-indigo-600">4 / 5</span>
-                                        </div>
-                                        <input type="range" min="1" max="5" value="4" class="w-full no-print" oninput="updateScore('score2', this.value)">
-                                    </div>
-                                    <div class="border border-slate-200 p-3 rounded-lg">
-                                        <div class="flex justify-between text-sm font-medium text-slate-700 mb-1">
-                                            <span>情緒管理與表達</span>
-                                            <span id="score3-val" class="text-indigo-600">3 / 5</span>
-                                        </div>
-                                        <input type="range" min="1" max="5" value="3" class="w-full no-print" oninput="updateScore('score3', this.value)">
-                                    </div>
-                                    <div class="border border-slate-200 p-3 rounded-lg">
-                                        <div class="flex justify-between text-sm font-medium text-slate-700 mb-1">
-                                            <span>常規與生活自理</span>
-                                            <span id="score4-val" class="text-indigo-600">5 / 5</span>
-                                        </div>
-                                        <input type="range" min="1" max="5" value="5" class="w-full no-print" oninput="updateScore('score4', this.value)">
-                                    </div>
-                                </div>
-                            </div>
-
-                            <!-- Qualitative Summary -->
-                            <div>
-                                <h3 class="text-sm font-bold text-slate-800 mb-2 border-l-4 border-indigo-600 pl-2">導師綜合評語與建議</h3>
-                                <textarea id="reportSummaryText" rows="5" class="w-full text-sm border border-slate-200 rounded-lg p-3 focus:ring-2 focus:ring-indigo-500 focus:outline-none no-print" placeholder="根據觀察記錄，撰寫整體總結與輔導建議..."></textarea>
-                                <div id="reportSummaryPrint" class="hidden print-only text-sm text-slate-700 whitespace-pre-line leading-relaxed border border-slate-100 p-3 bg-slate-50 rounded-lg"></div>
-                            </div>
-                        </div>
-
-                        <!-- Teacher Signature Area -->
-                        <div class="mt-12 pt-6 border-t border-slate-200 grid grid-cols-2 gap-8 text-sm">
-                            <div>
-                                <p class="text-slate-500">觀察指導教師簽章：</p>
-                                <div class="h-12 border-b border-slate-300"></div>
-                            </div>
-                            <div>
-                                <p class="text-slate-500">家長簽署回應：</p>
-                                <div class="h-12 border-b border-slate-300"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-
+            <div class="selector-group" style="margin-top:6px;">
+                <span style="font-size:0.8em; font-weight:bold; color:#c53030;">嚴重程度 (1–3)：</span>
+                <button type="button" class="sel-btn" onclick="setGlobalSev(1, this)">1=輕微</button>
+                <button type="button" class="sel-btn active-sev" onclick="setGlobalSev(2, this)">2=中等</button>
+                <button type="button" class="sel-btn" onclick="setGlobalSev(3, this)">3=嚴重</button>
             </div>
-        </section>
-    </main>
+        </div>
 
-    <!-- Modal: Add Student -->
-    <div id="addStudentModal" class="fixed inset-0 bg-slate-900/40 backdrop-blur-sm hidden items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-xl shadow-xl max-w-md w-full p-6 space-y-4">
-            <div class="flex justify-between items-center border-b border-slate-100 pb-3">
-                <h3 class="font-bold text-slate-800">新增學生資料</h3>
-                <button onclick="closeAddStudentModal()" class="text-slate-400 hover:text-slate-600">
-                    <i data-lucide="x" class="w-5 h-5"></i>
-                </button>
+        <div class="tab-menu">
+            <button class="tab-btn active" onclick="switchTab('tab_chi')">📕 中文科觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_eng')">📘 英文科觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_math')">📐 數學科觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_asd')">🧩 ASD 專屬觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_other')">🏫 其他/課堂通用</button>
+            <button class="tab-btn" onclick="switchTab('custom_tags')">✍️ 自訂觀察項目</button>
+        </div>
+
+        <div id="tab_chi" class="tab-content active">
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 認讀課文生字困難/常猜字跳字')">認讀課文生字困難 / 常猜字跳字</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 部件顛倒/倒置/容易混淆字形')">部件顛倒 / 倒置 / 容易混淆字形</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 默寫成績落後/漏字/錯字/跳行')">默寫成績落後 / 漏字 / 錯字 / 跳行</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 抄寫課文漏字/錯字/速度慢/筆順錯')">抄寫課文漏字 / 錯字 / 速度慢 / 筆順錯</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 閱讀理解難找出重點/難作推論')">閱讀理解難找出重點 / 難作推論</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 寫作難組織句子或段落/內容短')">寫作難組織句子或段落 / 內容短</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文-ASD] 難理解故事角色感受/動機')">🧩 ASD: 難理解故事角色感受 / 動機</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文-ASD] 難理解比喻/成語/課文寓意')">🧩 ASD: 難理解比喻 / 成語 / 課文寓意</div>
+        </div>
+
+        <div id="tab_eng" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 認讀英文字/常見字困難')">認讀英文字 / 常見字困難</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] b/d/p/q 鏡像字/字母順序混淆')">b/d/p/q 鏡像字 / 字母順序混淆</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 默寫/拼字表現弱/文法錯')">默寫 / 拼字表現弱 / 文法錯</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 閱讀英文句子不流暢/難理解')">閱讀英文句子不流暢 / 難理解</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 英語發音不準/口語回應被動短')">英語發音不準 / 口語回應被動短</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文-ASD] 難理解英文故事情境/角色關係')">🧩 ASD: 難理解英文故事情境 / 角色關係</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文-ASD] 難理解慣用語/幽默/隱含意思')">🧩 ASD: 難理解慣用語 / 幽默 / 隱含意思</div>
+        </div>
+
+        <div id="tab_math" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 抄錯數字/看漏題目符號')">抄錯數字 / 看漏題目符號</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 難記憶乘數表/公式/計算步驟')">難記憶乘數表 / 公式 / 計算步驟</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 難理解文字應用題/選相關資料')">難理解文字應用題 / 選相關資料</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 數學詞彙弱(一共/剩餘/平均)')">數學詞彙弱 (一共 / 剩餘 / 平均)</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學-ASD] 難理解圖表/圖像/抽象數學概念')">🧩 ASD: 難理解圖表 / 圖像 / 抽象概念</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學-ASD] 堅持單一解法/轉換題型困難')">🧩 ASD: 堅持單一解法 / 轉換題型困難</div>
+        </div>
+
+        <div id="tab_asd" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 需要具體/清晰及逐步指示')">需要具體 / 清晰及逐步指示</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 對轉堂/轉活動/突發改變反應大')">對轉堂 / 轉活動 / 突發改變反應大</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 對感興趣主題過度投入/難轉移')">對感興趣主題過度投入 / 難轉移</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 難理解任務隱藏要求/非字面意思')">難理解任務隱藏要求 / 非字面意思</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 對聲音/光線/觸感感官刺激敏感')">對聲音 / 光線 / 觸感感官刺激敏感</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 堅持固定程序/座位/物件擺放方式')">堅持固定程序 / 座位 / 物件擺放方式</div>
+        </div>
+
+        <div id="tab_other" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '難長時間維持專注(>10分鐘)/發呆')">難長時間維持專注 (>10分鐘) / 發呆</div>
+            <div class="tag-btn" onclick="toggleTag(this, '坐不定/扭動身體/擅自離座')">坐不定 / 扭動身體 / 擅自離座</div>
+            <div class="tag-btn" onclick="toggleTag(this, '玩弄文具/未聽完問題便搶答')">玩弄文具 / 未聽完問題便搶答</div>
+            <div class="tag-btn" onclick="toggleTag(this, '常欠交/漏做功課/遺失物件')">常欠交 / 漏做功課 / 遺失物件</div>
+            <div class="tag-btn" onclick="toggleTag(this, '難融入小組/難理解表情社交暗示')">難融入小組 / 難理解表情社交暗示</div>
+        </div>
+
+        <div id="custom_tags" class="tab-content" style="flex-direction: column; align-items: flex-start; gap: 10px; width: 100%;">
+            <div class="flex" style="width: 100%;">
+                <input type="text" id="customTagInput" placeholder="請輸入自由關注事項 (例如: 經常遺漏帶課本)" style="flex: 1; padding: 8px;">
+                <button type="button" class="btn btn-success" onclick="addCustomTag()">➕ 新增事項</button>
             </div>
-            <div class="space-y-3">
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 mb-1">學生姓名</label>
-                    <input type="text" id="newStudentName" placeholder="例如：張小明" class="w-full text-sm border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 mb-1">學號</label>
-                    <input type="text" id="newStudentId" placeholder="例如：112001" class="w-full text-sm border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                </div>
-                <div>
-                    <label class="block text-xs font-medium text-slate-500 mb-1">班級 / 年級</label>
-                    <input type="text" id="newStudentGrade" placeholder="例如：三年一班" class="w-full text-sm border border-slate-200 rounded-lg p-2.5 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
-                </div>
-            </div>
-            <div class="flex justify-end space-x-2 pt-2">
-                <button onclick="closeAddStudentModal()" class="px-4 py-2 text-sm text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition">取消</button>
-                <button onclick="saveStudent()" class="px-4 py-2 text-sm bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg font-medium transition">確認新增</button>
-            </div>
+            <div id="customTagContainer" class="flex" style="flex-wrap: wrap; width: 100%;"></div>
         </div>
     </div>
 
-    <!-- Script Logic -->
-    <script>
-        // State
-        let students = JSON.parse(localStorage.getItem('sys_students')) || [
-            {
-                id: '101',
-                studentId: '2023001',
-                name: '林小宇',
-                grade: '五年乙班',
-                records: [
-                    { id: 'r1', date: '2026-10-15', category: '學習態度', content: '數學分組討論時積極帶領組員分析題目，表現出良好領導力。' },
-                    { id: 'r2', date: '2026-10-18', category: '情緒表現', content: '體育課比賽落敗時有些沮喪，但經引導後能快速調整情緒並恭喜對手。' }
-                ],
-                scores: { score1: 4, score2: 5, score3: 3, score4: 4 },
-                summary: '小宇本學期表現優異，團隊合作意識強，能在課堂中保持積極專注。'
-            }
-        ];
-        let currentStudentId = null;
+    <!-- 3. 情境、典型事件 ABC 記錄與照片上傳區 -->
+    <div class="card no-print" id="sec-photo">
+        <h3>3. 情境、典型事件 (ABC 分析) 與照片佐證</h3>
+        <div class="flex" style="margin-bottom: 8px;">
+            <div style="flex:1;">
+                <label style="font-size:0.85em; font-weight:bold;">科目：</label>
+                <select id="subject" style="margin-top:4px;">
+                    <option value="中文">中文</option>
+                    <option value="英文">英文</option>
+                    <option value="數學">數學</option>
+                    <option value="其他">其他</option>
+                </select>
+            </div>
+            <div style="flex:1;">
+                <label style="font-size:0.85em; font-weight:bold;">觀察情境：</label>
+                <select id="trigger" style="margin-top:4px;">
+                    <option value="批改測驗/考試卷">批改測驗/考試卷</option>
+                    <option value="課堂觀察/日常教學">課堂觀察/日常教學</option>
+                    <option value="小組活動/口語練習">小組活動/口語練習</option>
+                    <option value="小息/午膳/全校活動">小息/午膳/全校活動</option>
+                </select>
+            </div>
+        </div>
 
-        // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
-            lucide.createIcons();
-            document.getElementById('recordDate').valueToDate = new Date();
-            document.getElementById('recordDate').value = new Date().toISOString().split('T')[0];
-            document.getElementById('reportGeneratedDate').innerText = new Date().toLocaleDateString('zh-TW');
-            renderStudentList();
-            if (students.length > 0) {
-                selectStudent(students[0].id);
+        <div class="abc-box">
+            <div style="font-weight:bold; font-size:0.85em; color:#d69e2e; margin-bottom:6px;">📝 典型事件記錄 (ABC 行為分析)：</div>
+            <div class="abc-grid">
+                <div>
+                    <label style="font-size:0.75em; font-weight:bold;">前因 (Antecedent)：</label>
+                    <select id="abcA_select" onchange="syncAbcInput('abcA_select', 'abcA')" style="margin-top:2px;">
+                        <option value="">-- 請選擇常見前因 --</option>
+                        <option value="進行測驗/默寫/考試時">進行測驗/默寫/考試時</option>
+                        <option value="老師進行全班講解/指示時">老師進行全班講解/指示時</option>
+                        <option value="進行個人獨立書寫/閱讀任務時">進行個人獨立書寫/閱讀任務時</option>
+                        <option value="進行小組活動/分組討論時">進行小組活動/分組討論時</option>
+                        <option value="轉堂/轉換活動/等待時間">轉堂/轉換活動/等待時間</option>
+                        <option value="小息/午膳/自由活動時間">小息/午膳/自由活動時間</option>
+                    </select>
+                    <input type="text" id="abcA" placeholder="或自由輸入前因..." style="margin-top:4px;">
+                </div>
+                <div>
+                    <label style="font-size:0.75em; font-weight:bold;">學生行為 (Behavior)：</label>
+                    <select id="abcB_select" onchange="syncAbcInput('abcB_select', 'abcB')" style="margin-top:2px;">
+                        <option value="">-- 請選擇常見行為 --</option>
+                        <option value="開始玩弄文具/物件/發呆">開始玩弄文具/物件/發呆</option>
+                        <option value="擅自離座/扭動身體/走動">擅自離座/扭動身體/走動</option>
+                        <option value="發出聲音/插嘴/未聽完搶答">發出聲音/插嘴/未聽完搶答</option>
+                        <option value="停筆/拒絕作答/逃避任務">停筆/拒絕作答/逃避任務</option>
+                        <option value="出現情緒激動/哭鬧/發脾氣">出現情緒激動/哭鬧/發脾氣</option>
+                        <option value="與同學發生爭執/碰撞/搶奪物件">與同學發生爭執/碰撞/搶奪物件</option>
+                    </select>
+                    <input type="text" id="abcB" placeholder="或自由輸入行為..." style="margin-top:4px;">
+                </div>
+                <div>
+                    <label style="font-size:0.75em; font-weight:bold;">老師處理與結果 (Consequence)：</label>
+                    <select id="abcC_select" onchange="syncAbcInput('abcC_select', 'abcC')" style="margin-top:2px;">
+                        <option value="">-- 請選擇常見處理 --</option>
+                        <option value="老師口頭提示後回到任務">老師口頭提示後回到任務</option>
+                        <option value="給予非言語提示(敲桌/眼神/手勢)">給予非言語提示(敲桌/眼神/手勢)</option>
+                        <option value="提供拆解步驟/減省任務量後完成">提供拆解步驟/減省任務量後完成</option>
+                        <option value="安排暫離座位/到靜心角冷靜">安排暫離座位/到靜心角冷靜</option>
+                        <option value="給予正向鼓勵/獎勵代幣後改善">給予正向鼓勵/獎勵代幣後改善</option>
+                        <option value="需要轉交輔導組/課後溝通處理">需要轉交輔導組/課後溝通處理</option>
+                    </select>
+                    <input type="text" id="abcC" placeholder="或自由輸入結果..." style="margin-top:4px;">
+                </div>
+            </div>
+        </div>
+
+        <div class="photo-upload-area">
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷/行為相片 (點擊可穩定放大圖片)：</label>
+            <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
+            <img id="photoPreview" class="photo-preview" alt="相片預覽" onclick="openImageModal(this.src, '預覽照片')">
+            <input type="text" id="photoNoteInput" placeholder="照片佐證說明 (例: 第3題 bed 寫成 deb)" style="margin-top:8px; display:none;">
+        </div>
+
+        <textarea id="notes" rows="2" placeholder="補充說明 / 老師建議支援策略效果"></textarea>
+
+        <div style="margin-top: 12px;">
+            <button class="action-btn" onclick="saveRecord()">💾 儲存觀察紀錄</button>
+        </div>
+    </div>
+
+    <!-- 4. 觀察紀錄檢視與生成報告區 -->
+    <div class="card" id="sec-records">
+        <h3>📋 觀察紀錄檢視、匯出與報告生成</h3>
+
+        <div class="no-print toolbar-group">
+            <div class="toolbar-title">📄 報告生成與 📊 列印/匯出工具 (PDF & Excel)</div>
+            <div class="flex">
+                <button class="btn btn-warning" onclick="generateClassOverviewReport()">📊 本班觀察總覽</button>
+                <button class="btn btn-primary" onclick="generateSimpleReport()">📄 產生簡化版報告</button>
+                <button class="btn btn-primary" onclick="generateFullEPReport()" style="background:#2c5282;">📑 產生 EP 9頁報告</button>
+                <button class="btn btn-pdf" onclick="exportToPDF()">📄 列印 / 儲存為 PDF</button>
+                <button class="btn btn-excel" onclick="exportExcelFile()">📊 匯出 Excel 報表 (.xlsx/.csv)</button>
+                <button class="btn btn-success" onclick="exportData()">💾 備份 JSON</button>
+                <button class="btn btn-secondary" onclick="document.getElementById('importFileInput').click()">📂 匯入 JSON</button>
+                <input type="file" id="importFileInput" accept=".json" onchange="importData(event)" style="display:none;">
+            </div>
+        </div>
+
+        <div class="flex no-print" style="margin-bottom: 12px; background: #f7fafc; padding: 10px; border-radius: 8px; border: 2px dashed #cbd5e0; gap: 12px;">
+            <label style="font-weight:bold; font-size:0.85em; color: #2d3748;">📌 選擇班別：
+                <select id="reportClassFilter" onchange="onReportClassFilterChange()" style="width: auto; display: inline-block; padding: 4px 10px; font-weight: bold; border-color: #2b6cb0; font-size:0.85em; cursor:pointer; background: #ffffff;">
+                    <option value="">-- 請選擇班別 --</option>
+                </select>
+            </label>
+            <label style="font-weight:bold; font-size:0.85em;">科目：
+                <select id="filterSubject" onchange="loadRecords()" style="width:auto; padding:4px 8px;">
+                    <option value="ALL">全部科目</option>
+                    <option value="中文">中文</option>
+                    <option value="英文">英文</option>
+                    <option value="數學">數學</option>
+                    <option value="其他">其他</option>
+                </select>
+            </label>
+            <button class="btn btn-danger" onclick="batchDeleteRecords()" style="margin-left:auto;">🗑️ 批量刪除勾選項</button>
+        </div>
+
+        <div id="studentProfileHeader" style="background:#ebf8ff; border:1px solid #bee3f8; border-radius:8px; padding:10px; margin-bottom:10px;">
+            <b id="profileName" style="color:#2b6cb0; font-size:0.95em;">🔍 請先在上方選擇班別</b>
+            <div id="profileReportNote" style="font-size:0.8em; color:#2c5282; margin-top:2px;"></div>
+        </div>
+
+        <div class="table-wrapper no-print">
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 4%; text-align:center;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th>
+                        <th style="width: 12%;">時間</th>
+                        <th style="width: 10%;">學生</th>
+                        <th style="width: 10%;">科目/情境</th>
+                        <th style="width: 24%;">觀察特徵 (頻率 / 嚴重度)</th>
+                        <th style="width: 18%;">ABC 典型事件</th>
+                        <th style="width: 14%;">佐證照片</th>
+                        <th style="width: 8%; text-align:center;">操作</th>
+                    </tr>
+                </thead>
+                <tbody id="recordTableBody">
+                    <tr><td colspan="8" style="text-align:center; padding:20px; color:#718096;">👈 請先在上方選擇班別以顯示檢視資料</td></tr>
+                </tbody>
+            </table>
+        </div>
+
+        <div class="pagination-controls no-print" id="paginationBox" style="display:none;">
+            <div>
+                每頁顯示：
+                <select id="pageSizeSelect" onchange="currentPage=1; loadRecords();" style="width:auto; padding:2px 6px;">
+                    <option value="10">10 筆</option>
+                    <option value="20">20 筆</option>
+                    <option value="50">50 筆</option>
+                </select>
+            </div>
+            <div class="pagination-buttons" id="paginationButtons"></div>
+        </div>
+
+        <div id="reportBox" class="report-preview-box"></div>
+    </div>
+</div>
+
+<!-- 修正後的相片放大 Modal：點擊不關閉，需按下右上角 [✕ 關閉視窗] 才關閉 -->
+<div id="imageModal" class="image-modal">
+    <button type="button" class="image-modal-close-btn" onclick="closeImageModal()">✕ 關閉視窗</button>
+    <img id="imageModalImg" class="image-modal-content" src="" alt="放大照片">
+    <div id="imageModalCaption" class="image-modal-caption"></div>
+</div>
+
+<div class="mobile-nav no-print">
+    <button class="mobile-nav-item active" onclick="mobileScrollTo('sec-students', this)">
+        <span>👶</span>學生
+    </button>
+    <button class="mobile-nav-item" onclick="mobileScrollTo('sec-tags', this)">
+        <span>🏷️</span>標籤
+    </button>
+    <button class="mobile-nav-item" onclick="mobileScrollTo('sec-photo', this)">
+        <span>📷</span>拍照
+    </button>
+    <button class="mobile-nav-item" onclick="mobileScrollTo('sec-records', this)">
+        <span>📄</span>報告
+    </button>
+</div>
+
+<script>
+    /* 1. 初始化 IndexedDB 大容量資料庫 (Dexie.js) */
+    const db = new Dexie("SenObserveDB");
+    db.version(3).stores({
+        records: 'id, studentId, time, context'
+    });
+
+    const avatarColors = ['#319795', '#3182ce', '#805ad5', '#dd6b20', '#d69e2e', '#e53e3e', '#38a169'];
+    const icons = ['🚀', '🧩', '✏️', '⚡', '📖', '🧠', '🤝', '⭐', '🎨', '🔍'];
+
+    let classList = JSON.parse(localStorage.getItem('sen_class_list')) || ['1A', '1B', '2A'];
+    let customTagList = JSON.parse(localStorage.getItem('sen_custom_tags')) || [];
+    
+    function generateStudentsForClass(className) {
+        const list = [];
+        for (let i = 1; i <= 30; i++) {
+            const numStr = i < 10 ? `0${i}` : `${i}`;
+            list.push({
+                id: `S_${className}_${numStr}`,
+                seatNum: `${numStr}號`,
+                name: `${className}-${numStr}`,
+                class: className,
+                hasReport: false,
+                reportType: '',
+                reportNote: '',
+                color: avatarColors[i % avatarColors.length],
+                icon: icons[i % icons.length]
+            });
+        }
+        return list;
+    }
+
+    function generateDefaultStudents() {
+        let allStudents = [];
+        classList.forEach(c => {
+            allStudents = allStudents.concat(generateStudentsForClass(c));
+        });
+        return allStudents;
+    }
+
+    let studentsDetail = JSON.parse(localStorage.getItem('sen_students_list')) || generateDefaultStudents();
+    let currentSelectedStudentId = 'ALL';
+    
+    let currentFreq = 2; // 0-4
+    let currentSev = 2;  // 1-3
+
+    let selectedTags = new Map();
+    let currentBase64Image = "";
+    let currentPage = 1;
+
+    function saveAllSettings() {
+        localStorage.setItem('sen_class_list', JSON.stringify(classList));
+        localStorage.setItem('sen_students_list', JSON.stringify(studentsDetail));
+        localStorage.setItem('sen_custom_tags', JSON.stringify(customTagList));
+    }
+
+    function syncAbcInput(selectId, inputId) {
+        const val = document.getElementById(selectId).value;
+        if (val) {
+            document.getElementById(inputId).value = val;
+        }
+    }
+
+    function updateClassFilterDropdown() {
+        const select = document.getElementById('classFilter');
+        const reportSelect = document.getElementById('reportClassFilter');
+        
+        select.innerHTML = '';
+        reportSelect.innerHTML = '<option value="">-- 請選擇班別 --</option>';
+
+        classList.forEach(c => {
+            select.innerHTML += `<option value="${c}">${c} 班</option>`;
+            reportSelect.innerHTML += `<option value="${c}">${c} 班</option>`;
+        });
+    }
+
+    function onClassFilterChange() {
+        currentSelectedStudentId = 'ALL'; 
+        renderStudents();
+    }
+
+    function onReportClassFilterChange() {
+        currentSelectedStudentId = 'ALL';
+        currentPage = 1;
+        document.getElementById('reportBox').style.display = 'none';
+        loadRecords();
+
+        const cls = document.getElementById('reportClassFilter').value;
+        const profileName = document.getElementById('profileName');
+        const profileNote = document.getElementById('profileReportNote');
+
+        if (!cls) {
+            profileName.innerText = '🔍 請先在上方選擇班別';
+            profileNote.innerText = '';
+        } else {
+            profileName.innerText = `🔍 調閱：[${cls} 班] 所有學生`;
+            profileNote.innerText = '';
+        }
+    }
+
+    function toggleAddClassBox() {
+        const box = document.getElementById('addClassBox');
+        box.style.display = (box.style.display === 'block') ? 'none' : 'block';
+    }
+
+    function confirmAddClass() {
+        const input = document.getElementById('newClassNameInput');
+        const newC = input.value.trim().toUpperCase();
+
+        if (!newC) { alert('請輸入班別名稱！'); return; }
+        if (classList.includes(newC)) { alert(`班別 ${newC} 已經存在！`); return; }
+
+        classList.push(newC);
+        studentsDetail = studentsDetail.concat(generateStudentsForClass(newC));
+        saveAllSettings();
+        updateClassFilterDropdown();
+        
+        document.getElementById('classFilter').value = newC;
+        onClassFilterChange();
+        
+        input.value = '';
+        toggleAddClassBox();
+        alert(`✅ 成功新增 ${newC} 班！`);
+    }
+
+    async function deleteCurrentClass() {
+        const currentClass = document.getElementById('classFilter').value;
+        if (!currentClass) { alert('沒有可刪除的班別！'); return; }
+
+        if (confirm(`⚠️ 確定要刪除整個【${currentClass} 班】嗎？`)) {
+            classList = classList.filter(c => c !== currentClass);
+            
+            const deleteTargetStudentIds = studentsDetail.filter(s => s.class === currentClass).map(s => s.id);
+            await db.records.where('studentId').anyOf(deleteTargetStudentIds).delete();
+
+            studentsDetail = studentsDetail.filter(s => s.class !== currentClass);
+
+            saveAllSettings();
+            updateClassFilterDropdown();
+
+            if (classList.length > 0) {
+                document.getElementById('classFilter').value = classList[0];
+                onClassFilterChange();
+            } else {
+                document.getElementById('studentGrid').innerHTML = '';
+            }
+
+            alert(`🗑️ 班別【${currentClass} 班】已刪除！`);
+        }
+    }
+
+    function resetAllClassesTo30() {
+        if (confirm('是否重置並補滿現有所有班別的 30 個 Icon？')) {
+            studentsDetail = generateDefaultStudents();
+            saveAllSettings();
+            renderStudents();
+        }
+    }
+
+    async function purgeAllSystemData() {
+        const confirmCode = prompt("⚠️ 如確定要清空全系統所有資料，請輸入 「DELETE」：");
+        if (confirmCode === 'DELETE') {
+            await db.records.clear();
+            localStorage.clear();
+            classList = ['1A', '1B', '2A'];
+            studentsDetail = generateDefaultStudents();
+            customTagList = [];
+            saveAllSettings();
+            updateClassFilterDropdown();
+            onClassFilterChange();
+            renderCustomTags();
+            alert("🧹 全系統資料已重置！");
+        }
+    }
+
+    function renderStudents() {
+        const cls = document.getElementById('classFilter').value;
+        const grid = document.getElementById('studentGrid');
+        const query = (document.getElementById('searchStudentInput').value || '').trim().toLowerCase();
+        grid.innerHTML = '';
+
+        const filtered = studentsDetail.filter(s => {
+            const matchClass = s.class === cls;
+            const matchQuery = !query || s.name.toLowerCase().includes(query) || s.seatNum.includes(query);
+            return matchClass && matchQuery;
+        });
+
+        filtered.forEach(stu => {
+            const card = document.createElement('div');
+            card.className = `student-card ${currentSelectedStudentId === stu.id ? 'selected' : ''}`;
+            
+            let tagHtml = `<div class="notice-tag">需多加注意</div>`;
+            if (stu.hasReport && stu.reportType) {
+                tagHtml = `<div class="report-tag">📄 ${stu.reportType}</div>`;
+            }
+
+            card.innerHTML = `
+                <button class="edit-stu-btn" onclick="editStudent('${stu.id}', event)">✏️</button>
+                <div class="seat-num">${stu.seatNum}</div>
+                <div class="avatar-circle" style="background-color: ${stu.color};">${stu.icon}</div>
+                <div class="name">${stu.name}</div>
+                ${tagHtml}
+            `;
+            card.onclick = () => filterStudent(stu.id);
+            grid.appendChild(card);
+        });
+    }
+
+    function filterStudent(id) {
+        currentSelectedStudentId = id;
+        renderStudents();
+        
+        const stu = studentsDetail.find(s => s.id === id);
+        if (stu) {
+            document.getElementById('reportClassFilter').value = stu.class;
+        }
+
+        currentPage = 1;
+        loadRecords();
+        document.getElementById('reportBox').style.display = 'none';
+
+        const profileName = document.getElementById('profileName');
+        const profileNote = document.getElementById('profileReportNote');
+
+        if (id === 'ALL') {
+            const cls = document.getElementById('reportClassFilter').value;
+            profileName.innerText = cls ? `🔍 調閱：[${cls} 班] 所有學生` : '🔍 請先在上方選擇班別';
+            profileNote.innerText = '';
+        } else {
+            if (stu) {
+                profileName.innerText = `🔍 調閱：[${stu.class}] ${stu.name} (${stu.seatNum})`;
+                if (stu.hasReport) {
+                    profileNote.innerText = `📋 評估報告：${stu.reportType || '已確診'} ${stu.reportNote ? '| 建議：' + stu.reportNote : ''}`;
+                } else {
+                    profileNote.innerText = '⚠️ 狀態：需多加注意學生';
+                }
+            }
+        }
+    }
+
+    function editStudent(id, e) {
+        e.stopPropagation();
+        const stu = studentsDetail.find(s => s.id === id);
+        if (!stu) return;
+
+        const newName = prompt(`修改姓名：`, stu.name);
+        if (newName) stu.name = newName;
+
+        const hasRep = confirm(`該學生「${stu.name}」是否已有正式評估報告？`);
+        stu.hasReport = hasRep;
+
+        if (hasRep) {
+            const repType = prompt(`請選擇/輸入診斷：`, stu.reportType || 'SpLD');
+            const repNote = prompt(`請輸入調適事項：`, stu.reportNote || '');
+            stu.reportType = repType || '已診斷';
+            stu.reportNote = repNote || '';
+        }
+
+        saveAllSettings();
+        renderStudents();
+        filterStudent(id);
+    }
+
+    function setGlobalFreq(val, btn) {
+        currentFreq = val;
+        btn.parentElement.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('active-freq'));
+        btn.classList.add('active-freq');
+    }
+
+    function setGlobalSev(val, btn) {
+        currentSev = val;
+        btn.parentElement.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('active-sev'));
+        btn.classList.add('active-sev');
+    }
+
+    function toggleTag(el, tagText) {
+        if (selectedTags.has(tagText)) {
+            selectedTags.delete(tagText);
+            el.classList.remove('selected');
+        } else {
+            selectedTags.set(tagText, { freq: currentFreq, sev: currentSev });
+            el.classList.add('selected');
+        }
+    }
+
+    function addCustomTag() {
+        const input = document.getElementById('customTagInput');
+        const text = input.value.trim();
+        if (!text) { alert('請輸入自訂觀察項目！'); return; }
+        if (!customTagList.includes(text)) {
+            customTagList.push(text);
+            saveAllSettings();
+            renderCustomTags();
+        }
+        input.value = '';
+    }
+
+    function renderCustomTags() {
+        const container = document.getElementById('customTagContainer');
+        container.innerHTML = '';
+        customTagList.forEach(text => {
+            const div = document.createElement('div');
+            div.className = `tag-btn ${selectedTags.has(text) ? 'selected' : ''}`;
+            div.innerText = text;
+            div.onclick = function() { toggleTag(this, text); };
+            container.appendChild(div);
+        });
+    }
+
+    function switchTab(tabId) {
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+        event.target.classList.add('active');
+        document.getElementById(tabId).classList.add('active');
+    }
+
+    function handlePhoto(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(event) {
+            const img = new Image();
+            img.onload = function() {
+                const canvas = document.createElement('canvas');
+                const max_size = 1200;
+                let width = img.width, height = img.height;
+                if (width > height) { if (width > max_size) { height *= max_size / width; width = max_size; } }
+                else { if (height > max_size) { width *= max_size / height; height = max_size; } }
+
+                canvas.width = width; canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+                currentBase64Image = canvas.toDataURL('image/jpeg', 0.85);
+                
+                document.getElementById('photoPreview').src = currentBase64Image;
+                document.getElementById('photoPreview').style.display = 'block';
+                document.getElementById('photoNoteInput').style.display = 'block';
+            };
+            img.src = event.target.result;
+        };
+        reader.readAsDataURL(file);
+    }
+
+    async function saveRecord() {
+        if (currentSelectedStudentId === 'ALL') {
+            alert('請先點擊第 1 部分選擇一位特定學生！');
+            return;
+        }
+
+        const now = new Date().toLocaleString('zh-HK', { hour12: false });
+        const subject = document.getElementById('subject').value;
+        const trigger = document.getElementById('trigger').value;
+        const photoNote = document.getElementById('photoNoteInput').value.trim();
+        const notes = document.getElementById('notes').value.trim();
+
+        const abcA = document.getElementById('abcA').value.trim();
+        const abcB = document.getElementById('abcB').value.trim();
+        const abcC = document.getElementById('abcC').value.trim();
+
+        const tagList = [];
+        selectedTags.forEach((score, tag) => {
+            tagList.push({ tag: tag, freq: score.freq, sev: score.sev });
+        });
+
+        const newRecord = {
+            id: 'REC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+            time: now,
+            studentId: currentSelectedStudentId,
+            context: `${subject} (${trigger})`,
+            subject: subject,
+            tags: tagList,
+            abc: (abcA || abcB || abcC) ? { a: abcA, b: abcB, c: abcC } : null,
+            image: currentBase64Image,
+            photoNote: photoNote,
+            notes: notes
+        };
+
+        await db.records.add(newRecord);
+
+        document.getElementById('notes').value = '';
+        document.getElementById('photoInput').value = '';
+        document.getElementById('photoNoteInput').value = '';
+        document.getElementById('photoPreview').style.display = 'none';
+        document.getElementById('photoNoteInput').style.display = 'none';
+        document.getElementById('abcA').value = '';
+        document.getElementById('abcB').value = '';
+        document.getElementById('abcC').value = '';
+        document.getElementById('abcA_select').value = '';
+        document.getElementById('abcB_select').value = '';
+        document.getElementById('abcC_select').value = '';
+        currentBase64Image = "";
+        selectedTags.clear();
+        document.querySelectorAll('.tag-btn').forEach(btn => btn.classList.remove('selected'));
+
+        const stuObj = studentsDetail.find(s => s.id === currentSelectedStudentId);
+        if (stuObj && document.getElementById('reportClassFilter').value === stuObj.class) {
+            loadRecords();
+        }
+
+        alert('觀察紀錄已成功儲存！');
+    }
+
+    async function getFilteredRecords() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) return [];
+
+        const allRecords = await db.records.toArray();
+        const filterSub = document.getElementById('filterSubject').value;
+
+        return allRecords.filter(r => {
+            const stuObj = studentsDetail.find(s => s.id === r.studentId);
+            const classMatch = (stuObj && stuObj.class === cls);
+            const studentMatch = (currentSelectedStudentId === 'ALL') || (r.studentId === currentSelectedStudentId);
+            const subjectMatch = (filterSub === 'ALL') || (r.context && r.context.startsWith(filterSub));
+
+            return classMatch && studentMatch && subjectMatch;
+        }).sort((a,b) => b.id.localeCompare(a.id));
+    }
+
+    async function loadRecords() {
+        const tbody = document.getElementById('recordTableBody');
+        const paginationBox = document.getElementById('paginationBox');
+        tbody.innerHTML = '';
+
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) {
+            tbody.innerHTML = '<tr><td colspan="8" style="text-align:center; padding:20px; color:#718096;">👈 請先在上方選擇班別以顯示檢視資料</td></tr>';
+            paginationBox.style.display = 'none';
+            return;
+        }
+
+        let filtered = await getFilteredRecords();
+
+        if (filtered.length === 0) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center; padding:20px; color:#718096;">【${cls} 班】目前尚無符合條件的觀察紀錄</td></tr>`;
+            paginationBox.style.display = 'none';
+            return;
+        }
+
+        const pageSize = parseInt(document.getElementById('pageSizeSelect').value || 10);
+        const totalPages = Math.ceil(filtered.length / pageSize);
+        if (currentPage > totalPages) currentPage = totalPages;
+
+        const startIdx = (currentPage - 1) * pageSize;
+        const pageRecords = filtered.slice(startIdx, startIdx + pageSize);
+
+        pageRecords.forEach(r => {
+            const tr = document.createElement('tr');
+            const stuObj = studentsDetail.find(s => s.id === r.studentId) || { name: r.studentId, class: '-' };
+            
+            let imgTdHtml = '-';
+            if (r.image) {
+                const noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
+                imgTdHtml = `<img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')">`;
+                if (r.photoNote) imgTdHtml += `<br><small style="color:#4a5568;">📷 ${r.photoNote}</small>`;
+            }
+
+            let tagsHtml = '-';
+            if (Array.isArray(r.tags) && r.tags.length > 0) {
+                tagsHtml = r.tags.map(t => {
+                    const fVal = t.freq !== undefined ? t.freq : 2;
+                    const sVal = t.sev !== undefined ? t.sev : 2;
+                    return `• ${t.tag} <span class="badge-score bg-freq">頻率:${fVal}</span> <span class="badge-score bg-sev">嚴重度:${sVal}</span>`;
+                }).join('<br>');
+            }
+
+            let abcHtml = '-';
+            if (r.abc && (r.abc.a || r.abc.b || r.abc.c)) {
+                abcHtml = `<small><b>前因:</b> ${r.abc.a||'-'}<br><b>行為:</b> ${r.abc.b||'-'}<br><b>結果:</b> ${r.abc.c||'-'}</small>`;
+            }
+
+            tr.innerHTML = `
+                <td style="text-align:center;"><input type="checkbox" class="record-checkbox" value="${r.id}"></td>
+                <td><small>${r.time}</small></td>
+                <td><b>${stuObj.name}</b><br><small>[${stuObj.class}]</small></td>
+                <td>${r.context}</td>
+                <td>${tagsHtml}</td>
+                <td>${abcHtml}</td>
+                <td>${imgTdHtml}</td>
+                <td style="text-align:center;">
+                    <button class="btn-table-edit" onclick="editRecord('${r.id}')">✏️ 編輯</button><br>
+                    <button class="btn-table-del" onclick="deleteRecord('${r.id}')">🗑️ 刪除</button>
+                </td>
+            `;
+            tbody.appendChild(tr);
+        });
+
+        paginationBox.style.display = 'flex';
+        const btnBox = document.getElementById('paginationButtons');
+        btnBox.innerHTML = '';
+        for (let i = 1; i <= totalPages; i++) {
+            btnBox.innerHTML += `<button class="page-btn ${i === currentPage ? 'active' : ''}" onclick="goToPage(${i})">${i}</button>`;
+        }
+        document.getElementById('selectAllCheckbox').checked = false;
+    }
+
+    function goToPage(p) {
+        currentPage = p;
+        loadRecords();
+    }
+
+    function toggleSelectAll(master) {
+        document.querySelectorAll('.record-checkbox').forEach(cb => cb.checked = master.checked);
+    }
+
+    async function batchDeleteRecords() {
+        const checkedBoxes = document.querySelectorAll('.record-checkbox:checked');
+        if (checkedBoxes.length === 0) {
+            alert('請先在表格最左側勾選要刪除的紀錄！');
+            return;
+        }
+
+        if (confirm(`確定要一次刪除勾選的 ${checkedBoxes.length} 筆紀錄嗎？`)) {
+            const idsToDelete = Array.from(checkedBoxes).map(cb => cb.value);
+            await db.records.bulkDelete(idsToDelete);
+            loadRecords();
+            document.getElementById('reportBox').style.display = 'none';
+            alert(`🗑️ 已成功刪除 ${idsToDelete.length} 筆紀錄！`);
+        }
+    }
+
+    async function deleteRecord(id) {
+        const target = await db.records.get(id);
+        if (!target) return;
+
+        if (confirm(`確定要刪除這筆觀察紀錄嗎？`)) {
+            await db.records.delete(id);
+            loadRecords();
+            document.getElementById('reportBox').style.display = 'none';
+            alert('🗑️ 紀錄已成功刪除！');
+        }
+    }
+
+    async function editRecord(id) {
+        const target = await db.records.get(id);
+        if (!target) return;
+
+        const newNotes = prompt("修改補充說明：", target.notes || "");
+        if (newNotes !== null) {
+            target.notes = newNotes.trim();
+        }
+
+        if (target.image) {
+            const newPhotoNote = prompt("修改照片佐證說明：", target.photoNote || "");
+            if (newPhotoNote !== null) {
+                target.photoNote = newPhotoNote.trim();
+            }
+        }
+
+        await db.records.put(target);
+        loadRecords();
+        document.getElementById('reportBox').style.display = 'none';
+        alert('✏️ 紀錄已成功更新！');
+    }
+
+    /* 📸 穩定相片放大：不會點擊一放大就消失，必須按「✕ 關閉視窗」按鈕才關閉 */
+    function openImageModal(src, caption) {
+        if (!src) return;
+        const modal = document.getElementById('imageModal');
+        const modalImg = document.getElementById('imageModalImg');
+        const modalCaption = document.getElementById('imageModalCaption');
+
+        modalImg.src = src;
+        modalCaption.innerText = caption || '佐證照片預覽 (可長按或雙指放大網頁)';
+        modal.style.display = 'flex';
+    }
+
+    function closeImageModal() {
+        document.getElementById('imageModal').style.display = 'none';
+    }
+
+    /* 📄 🖨️ PDF 匯出 / 直接列印模組 */
+    async function exportToPDF() {
+        const reportBox = document.getElementById('reportBox');
+        if (reportBox.style.display === 'none' || reportBox.innerHTML.trim() === '') {
+            if (currentSelectedStudentId !== 'ALL') {
+                await generateSimpleReport();
+            } else {
+                await generateClassOverviewReport();
+            }
+        }
+        setTimeout(() => {
+            window.print();
+        }, 300);
+    }
+
+    /* 📊 Excel (.xlsx 格式無縫匯出模組) */
+    async function exportExcelFile() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) { alert('請先在上方選擇要匯出的班別！'); return; }
+
+        const filteredRecords = await getFilteredRecords();
+        if (filteredRecords.length === 0) { alert(`【${cls} 班】目前沒有任何紀錄可匯出！`); return; }
+
+        let excelContent = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+        <head><meta charset="UTF-8"><!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet><x:Name>${cls}班觀察紀錄</x:Name><x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions></x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]--></head>
+        <body>
+        <table border="1">
+            <tr style="background-color:#edf2f7; font-weight:bold;">
+                <td>日期時間</td>
+                <td>學生姓名</td>
+                <td>班別</td>
+                <td>科目/情境</td>
+                <td>觀察特徵指標</td>
+                <td>ABC 前因</td>
+                <td>ABC 行為</td>
+                <td>ABC 結果</td>
+                <td>補充說明/佐證</td>
+            </tr>`;
+
+        filteredRecords.forEach(r => {
+            const stuObj = studentsDetail.find(s => s.id === r.studentId) || { name: r.studentId, class: '-' };
+            const tagsText = (r.tags || []).map(t => `${t.tag}(頻率:${t.freq},嚴重:${t.sev})`).join('; ');
+            const abcA = r.abc ? r.abc.a || '' : '';
+            const abcB = r.abc ? r.abc.b || '' : '';
+            const abcC = r.abc ? r.abc.c || '' : '';
+
+            excelContent += `
+                <tr>
+                    <td>${r.time}</td>
+                    <td>${stuObj.name}</td>
+                    <td>${stuObj.class}</td>
+                    <td>${r.context}</td>
+                    <td>${tagsText}</td>
+                    <td>${abcA}</td>
+                    <td>${abcB}</td>
+                    <td>${abcC}</td>
+                    <td>${r.notes || ''} ${r.photoNote ? '[照片佐證: ' + r.photoNote + ']' : ''}</td>
+                </tr>`;
+        });
+
+        excelContent += `</table></body></html>`;
+
+        const blob = new Blob([excelContent], { type: 'application/vnd.ms-excel;charset=utf-8;' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${cls}班_學生觀察紀錄表_${new Date().toISOString().slice(0, 10)}.xls`;
+        a.click();
+    }
+
+    async function generateClassOverviewReport() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) { alert('請先在上方選擇要檢視的班別！'); return; }
+
+        const allRecords = await db.records.toArray();
+        const reportBox = document.getElementById('reportBox');
+        const targetStudents = studentsDetail.filter(s => s.class === cls);
+
+        const globalTagCounts = {};
+        targetStudents.forEach(stu => {
+            const stuRecs = allRecords.filter(r => r.studentId === stu.id);
+            stuRecs.forEach(r => {
+                if (Array.isArray(r.tags)) {
+                    r.tags.forEach(t => {
+                        globalTagCounts[t.tag] = (globalTagCounts[t.tag] || 0) + 1;
+                    });
+                }
+            });
+        });
+
+        const sortedTags = Object.entries(globalTagCounts).sort((a,b) => b[1] - a[1]).slice(0, 5);
+        let topTagsHtml = sortedTags.map(([tag, count]) => `<li><b>${tag}</b>：全班共出現 ${count} 次</li>`).join('') || '<li>尚無觀察紀錄</li>';
+
+        let gridHtml = '';
+        targetStudents.forEach(stu => {
+            const stuRecs = allRecords.filter(r => r.studentId === stu.id);
+            const count = stuRecs.length;
+            
+            let hasSevere = false;
+            stuRecs.forEach(r => {
+                if (Array.isArray(r.tags) && r.tags.some(t => t.sev === 3 || t.freq >= 3)) {
+                    hasSevere = true;
+                }
+            });
+
+            let levelClass = 'status-level-0';
+            let levelLabel = '無紀錄';
+            if (hasSevere || count >= 3) {
+                levelClass = 'status-level-2';
+                levelLabel = '⚠️ 高度關注';
+            } else if (count > 0) {
+                levelClass = 'status-level-1';
+                levelLabel = '🔍 觀察中';
+            }
+
+            gridHtml += `
+                <div class="class-summary-card ${levelClass}" onclick="filterStudent('${stu.id}')">
+                    <div style="font-weight:bold; font-size:0.9em;">${stu.name} (${stu.seatNum})</div>
+                    <div style="font-size:0.75em; color:#4a5568; margin-top:2px;">${levelLabel}</div>
+                    <div style="font-size:0.8em; margin-top:4px;"><b>${count}</b> 次觀察紀錄</div>
+                </div>
+            `;
+        });
+
+        const today = new Date().toLocaleDateString('zh-HK');
+
+        reportBox.innerHTML = `
+            <div class="report-header">
+                <h2>📊 ${cls} 班 全班觀察概況摘要</h2>
+                <p style="font-size:0.85em; color:#718096; margin-top:4px;">列印日期：${today} | 總人數：${targetStudents.length} 人</p>
+            </div>
+
+            <h3>🔥 本班最常出現特徵排行 (Top 5)</h3>
+            <ul>${topTagsHtml}</ul>
+
+            <h3>👶 本班學生狀態矩陣</h3>
+            <div class="class-summary-grid">${gridHtml}</div>
+
+            <div style="margin-top:30px; display:flex; justify-content:space-between; font-size:0.9em;">
+                <div><b>班主任 / 科任老師簽署：</b>__________________</div>
+                <div><b>日期：</b>${today}</div>
+            </div>
+        `;
+
+        reportBox.style.display = 'block';
+        reportBox.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function generateSimpleReport() {
+        if (currentSelectedStudentId === 'ALL') {
+            alert('請先在第 1 部分點擊選擇一位特定學生！');
+            return;
+        }
+
+        const stu = studentsDetail.find(s => s.id === currentSelectedStudentId);
+        const allRecs = await db.records.toArray();
+        const records = allRecs.filter(r => r.studentId === currentSelectedStudentId);
+        const reportBox = document.getElementById('reportBox');
+
+        const tagMap = {};
+        records.forEach(r => {
+            if (Array.isArray(r.tags)) {
+                r.tags.forEach(t => {
+                    const fVal = t.freq !== undefined ? t.freq : 2;
+                    const sVal = t.sev !== undefined ? t.sev : 2;
+                    tagMap[t.tag] = { freq: fVal, sev: sVal };
+                });
             }
         });
 
-        // Save State
-        function saveToStorage() {
-            localStorage.setItem('sys_students', JSON.stringify(students));
+        let tagSummaryRows = Object.keys(tagMap).map(t => `
+            <tr>
+                <td>${t}</td>
+                <td style="text-align:center;">${tagMap[t].freq}</td>
+                <td style="text-align:center;">${tagMap[t].sev}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" style="text-align:center;">暫無行為標註紀錄</td></tr>';
+
+        const abcRecords = records.filter(r => r.abc && (r.abc.a || r.abc.b || r.abc.c));
+        let abcTableRows = abcRecords.map(r => `
+            <tr>
+                <td>${r.time}</td>
+                <td>${r.context}</td>
+                <td>${r.abc.a || '-'}</td>
+                <td>${r.abc.b || '-'}</td>
+                <td>${r.abc.c || '-'}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" style="text-align:center;">無 ABC 典型事件紀錄</td></tr>';
+
+        const today = new Date().toLocaleDateString('zh-HK');
+
+        reportBox.innerHTML = `
+            <div class="report-header">
+                <h2>📋 學生日常觀察摘要簡報 (簡化版)</h2>
+                <p style="font-size:0.85em; color:#555;">供校內會議 / 跨科老師快速參閱</p>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <tr><th style="width:20%">學生姓名</th><td><b>${stu.name}</b></td><th style="width:20%">班別/座號</th><td>${stu.class} (${stu.seatNum})</td></tr>
+                <tr><th>已知診斷/狀態</th><td colspan="3">${stu.hasReport ? stu.reportType + ' (已確診)' : '需多加注意學生'}</td></tr>
+            </table>
+
+            <h3>📊 觀察特徵摘要與矩陣指標</h3>
+            <p style="font-size:0.8em; color:#666;"><b>頻率：</b>0=沒有 | 1=極少 | 2=偶爾 | 3=經常 | 4=每天<br><b>嚴重度：</b>1=輕微 | 2=中等 | 3=嚴重</p>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <thead>
+                    <tr>
+                        <th>觀察項目</th>
+                        <th style="width:20%; text-align:center;">頻率 (0–4)</th>
+                        <th style="width:20%; text-align:center;">嚴重程度 (1–3)</th>
+                    </tr>
+                </thead>
+                <tbody>${tagSummaryRows}</tbody>
+            </table>
+
+            <h3>📝 典型事件記錄 (ABC)</h3>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="width:15%">時間</th>
+                        <th style="width:15%">情境</th>
+                        <th style="width:20%">前因 (A)</th>
+                        <th style="width:25%">行為 (B)</th>
+                        <th style="width:25%">結果 (C)</th>
+                    </tr>
+                </thead>
+                <tbody>${abcTableRows}</tbody>
+            </table>
+
+            <div style="margin-top:25px; display:flex; justify-content:space-between; font-size:0.85em;">
+                <div><b>紀錄老師：</b>__________________</div>
+                <div><b>列印日期：</b>${today}</div>
+            </div>
+        `;
+
+        reportBox.style.display = 'block';
+        reportBox.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    async function generateFullEPReport() {
+        if (currentSelectedStudentId === 'ALL') {
+            alert('請先在第 1 部分點擊選擇一位特定學生！');
+            return;
         }
 
-        // Student List Rendering
-        function renderStudentList() {
-            const listEl = document.getElementById('studentList');
-            const query = document.getElementById('searchInput').value.toLowerCase();
-            listEl.innerHTML = '';
+        const stu = studentsDetail.find(s => s.id === currentSelectedStudentId);
+        const allRecs = await db.records.toArray();
+        const records = allRecs.filter(r => r.studentId === currentSelectedStudentId);
+        const reportBox = document.getElementById('reportBox');
 
-            const filtered = students.filter(s => s.name.toLowerCase().includes(query) || s.studentId.toLowerCase().includes(query));
+        const abcRecords = records.filter(r => r.abc && (r.abc.a || r.abc.b || r.abc.c));
+        let abcTableRows = abcRecords.map(r => `
+            <tr style="height:45px">
+                <td>${r.time}</td>
+                <td>${r.context}</td>
+                <td>${r.abc.a || '-'}</td>
+                <td>${r.abc.b || '-'}</td>
+                <td>${r.abc.c || '-'}</td>
+            </tr>
+        `).join('') || `<tr><td colspan="5" style="text-align:center; padding:15px; color:#718096;">尚無登錄 ABC 典型事件紀錄</td></tr>`;
 
-            if (filtered.length === 0) {
-                listEl.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">查無相關學生</p>`;
-                return;
+        const tagMap = {};
+        records.forEach(r => {
+            if (Array.isArray(r.tags)) {
+                r.tags.forEach(t => {
+                    const fVal = t.freq !== undefined ? t.freq : 2;
+                    const sVal = t.sev !== undefined ? t.sev : 2;
+                    tagMap[t.tag] = { freq: fVal, sev: sVal };
+                });
             }
+        });
 
-            filtered.forEach(s => {
-                const isSelected = s.id === currentStudentId;
-                const item = document.createElement('div');
-                item.className = `p-3 rounded-lg cursor-pointer transition border ${isSelected ? 'bg-indigo-50 border-indigo-200' : 'bg-white border-slate-100 hover:bg-slate-50'}`;
-                item.onclick = () => selectStudent(s.id);
-                item.innerHTML = `
-                    <div class="flex justify-between items-center">
-                        <span class="font-semibold text-sm text-slate-800">${s.name}</span>
-                        <span class="text-xs text-slate-400">${s.grade}</span>
-                    </div>
-                    <div class="flex justify-between items-center mt-1">
-                        <span class="text-xs text-slate-500">學號: ${s.studentId}</span>
-                        <span class="text-[10px] bg-slate-100 text-slate-600 px-1.5 py-0.5 rounded">${s.records.length} 條紀錄</span>
-                    </div>
-                `;
-                listEl.appendChild(item);
-            });
+        let tagSummaryRows = Object.keys(tagMap).map(t => `
+            <tr>
+                <td>${t}</td>
+                <td style="text-align:center;">${tagMap[t].freq}</td>
+                <td style="text-align:center;">${tagMap[t].sev}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" style="text-align:center;">暫無行為標註紀錄</td></tr>';
+
+        let recordsRows = records.map(r => {
+            let tagsText = r.tags.map(t => `${t.tag}(頻率:${t.freq !== undefined ? t.freq : 2},嚴重:${t.sev !== undefined ? t.sev : 2})`).join(', ') || '無';
+            let noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
+            let imgHtml = r.image ? `<br><img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')"><br><small>佐證：${r.photoNote || '無說明'}</small>` : '';
+            return `
+                <tr>
+                    <td>${r.time}</td>
+                    <td>${r.context}</td>
+                    <td>${tagsText}</td>
+                    <td>${r.notes || '-'}${imgHtml}</td>
+                </tr>
+            `;
+        }).join('') || '<tr><td colspan="4" style="text-align:center;">尚無詳細紀錄</td></tr>';
+
+        const today = new Date().toLocaleDateString('zh-HK');
+
+        reportBox.innerHTML = `
+            <div class="report-header">
+                <h2>學生行為及學習觀察記錄表 (EP標準格式)</h2>
+                <p style="font-size:0.85em; color:#555;">供教育心理學家評估參考</p>
+            </div>
+
+            <h3>第一頁：學生基本資料</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <tr><th style="width:20%">學生姓名</th><td><b>${stu.name}</b></td><th style="width:20%">班別/座號</th><td>${stu.class} (${stu.seatNum})</td></tr>
+                <tr><th>已知診斷/懷疑</th><td colspan="3">${stu.hasReport ? stu.reportType + ' (已診斷)' : '懷疑有 SEN 學習需要'}</td></tr>
+                <tr><th>現有支援</th><td colspan="3">${stu.reportNote || '校本學習支援 / 課堂觀察記錄中'}</td></tr>
+            </table>
+
+            <h3>第二頁：雙重指標矩陣評估 (頻率 0-4 / 嚴重度 1-3)</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <thead>
+                    <tr>
+                        <th>觀察項目 (包含中英數及 ASD 特徵)</th>
+                        <th style="width:20%; text-align:center;">頻率 0–4</th>
+                        <th style="width:20%; text-align:center;">嚴重程度 1–3</th>
+                    </tr>
+                </thead>
+                <tbody>${tagSummaryRows}</tbody>
+            </table>
+
+            <div class="ep-page-break"></div>
+            <h3>第三頁：典型事件記錄 (ABC 行為分析)</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <thead>
+                    <tr>
+                        <th style="width:15%">日期時間</th>
+                        <th style="width:15%">情境</th>
+                        <th style="width:20%">前因 (Antecedent)</th>
+                        <th style="width:25%">學生行為 (Behavior)</th>
+                        <th style="width:25%">老師處理及結果 (Consequence)</th>
+                    </tr>
+                </thead>
+                <tbody>${abcTableRows}</tbody>
+            </table>
+
+            <div class="ep-page-break"></div>
+            <h3>第四頁：日常觀察與照片佐證紀錄 (${records.length} 次)</h3>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="width:18%;">日期時間</th>
+                        <th style="width:18%;">科目/情境</th>
+                        <th style="width:32%;">觀察行為與指標</th>
+                        <th style="width:32%;">備註與佐證照片</th>
+                    </tr>
+                </thead>
+                <tbody>${recordsRows}</tbody>
+            </table>
+
+            <div style="margin-top:35px; display:flex; justify-content:space-between; font-size:0.9em;">
+                <div><b>觀察教師簽署：</b>__________________</div>
+                <div><b>日期：</b>${today}</div>
+            </div>
+        `;
+
+        reportBox.style.display = 'block';
+        reportBox.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function mobileScrollTo(id, btn) {
+        document.querySelectorAll('.mobile-nav-item').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        const element = document.getElementById(id);
+        if (element) {
+            element.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
+    }
 
-        // Select Student
-        function selectStudent(id) {
-            currentStudentId = id;
-            renderStudentList();
+    async function exportData() {
+        const cls = document.getElementById('reportClassFilter').value;
+        if (!cls) { alert('請先在上方選擇要匯出的班別！'); return; }
 
-            const student = students.find(s => s.id === id);
-            if (!student) return;
+        const filteredRecords = await getFilteredRecords();
+        if (filteredRecords.length === 0) { alert(`【${cls} 班】目前沒有任何紀錄可匯出！`); return; }
 
-            document.getElementById('emptyState').classList.add('hidden');
-            document.getElementById('workspace').classList.remove('hidden');
+        const dataStr = JSON.stringify(filteredRecords, null, 2);
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = `${cls}班_EP觀察紀錄備份_${new Date().toISOString().slice(0, 10)}.json`;
+        a.click();
+    }
 
-            // Header Info
-            document.getElementById('currentStudentName').innerText = student.name;
-            document.getElementById('currentStudentGrade').innerText = student.grade;
-            document.getElementById('currentStudentId').innerText = student.studentId;
+    function importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
 
-            // Report Basic Info
-            document.getElementById('repName').innerText = student.name;
-            document.getElementById('repGrade').innerText = student.grade;
-            document.getElementById('repId').innerText = student.studentId;
-
-            // Load Records
-            renderRecords(student);
-
-            // Load Report Scores & Summary
-            const scores = student.scores || { score1: 3, score2: 3, score3: 3, score4: 3 };
-            for (let i = 1; i <= 4; i++) {
-                const val = scores[`score${i}`] || 3;
-                document.getElementById(`score${i}-val`).innerText = `${val} / 5`;
-                document.querySelectorAll(`input[type=range]`)[i - 1].value = val;
-            }
-            document.getElementById('reportSummaryText').value = student.summary || '';
-            document.getElementById('reportSummaryPrint').innerText = student.summary || '尚無總結評語。';
-
-            // Auto-save summary input
-            document.getElementById('reportSummaryText').oninput = (e) => {
-                student.summary = e.target.value;
-                document.getElementById('reportSummaryPrint').innerText = e.target.value;
-                saveToStorage();
-            };
-        }
-
-        // Add Record
-        function addRecord() {
-            if (!currentStudentId) return;
-            const date = document.getElementById('recordDate').value;
-            const category = document.getElementById('recordCategory').value;
-            const content = document.getElementById('recordContent').value.trim();
-
-            if (!content) {
-                alert('請輸入觀察內容說明！');
-                return;
-            }
-
-            const student = students.find(s => s.id === currentStudentId);
-            student.records.unshift({
-                id: Date.now().toString(),
-                date,
-                category,
-                content
-            });
-
-            saveToStorage();
-            renderRecords(student);
-            renderStudentList();
-            document.getElementById('recordContent').value = '';
-        }
-
-        // Render Records
-        function renderRecords(student) {
-            const container = document.getElementById('recordsList');
-            container.innerHTML = '';
-
-            if (student.records.length === 0) {
-                container.innerHTML = `<p class="text-xs text-slate-400 text-center py-6">目前尚無觀察記錄</p>`;
-                return;
-            }
-
-            student.records.forEach(r => {
-                const card = document.createElement('div');
-                card.className = "p-4 bg-slate-50 rounded-lg border border-slate-200 relative group";
-                card.innerHTML = `
-                    <div class="flex justify-between items-center mb-2">
-                        <div class="flex items-center space-x-2">
-                            <span class="text-xs font-semibold px-2 py-0.5 rounded bg-indigo-100 text-indigo-700">${r.category}</span>
-                            <span class="text-xs text-slate-400">${r.date}</span>
-                        </div>
-                        <button onclick="deleteRecord('${r.id}')" class="text-slate-400 hover:text-rose-600 no-print">
-                            <i data-lucide="x" class="w-4 h-4"></i>
-                        </button>
-                    </div>
-                    <p class="text-sm text-slate-700 leading-relaxed">${r.content}</p>
-                `;
-                container.appendChild(card);
-            });
-            lucide.createIcons();
-        }
-
-        // Delete Record
-        function deleteRecord(recordId) {
-            const student = students.find(s => s.id === currentStudentId);
-            student.records = student.records.filter(r => r.id !== recordId);
-            saveToStorage();
-            renderRecords(student);
-            renderStudentList();
-        }
-
-        // Update Score
-        function updateScore(scoreKey, val) {
-            const student = students.find(s => s.id === currentStudentId);
-            if (!student.scores) student.scores = {};
-            student.scores[scoreKey] = parseInt(val);
-            document.getElementById(`${scoreKey}-val`).innerText = `${val} / 5`;
-            saveToStorage();
-        }
-
-        // Tab Switching
-        function switchTab(tab) {
-            const recordsTab = document.getElementById('tab-records');
-            const reportTab = document.getElementById('tab-report');
-            const btnRecords = document.getElementById('tab-records-btn');
-            const btnReport = document.getElementById('tab-report-btn');
-
-            if (tab === 'records') {
-                recordsTab.classList.remove('hidden');
-                reportTab.classList.add('hidden');
-                btnRecords.className = "border-b-2 border-indigo-600 py-3 px-1 text-sm font-semibold text-indigo-600 flex items-center space-x-2";
-                btnReport.className = "border-b-2 border-transparent py-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300 flex items-center space-x-2";
-            } else {
-                recordsTab.classList.add('hidden');
-                reportTab.classList.remove('hidden');
-                btnReport.className = "border-b-2 border-indigo-600 py-3 px-1 text-sm font-semibold text-indigo-600 flex items-center space-x-2";
-                btnRecords.className = "border-b-2 border-transparent py-3 px-1 text-sm font-medium text-slate-500 hover:text-slate-700 hover:border-slate-300 flex items-center space-x-2";
-            }
-        }
-
-        // Modal Controls
-        function openAddStudentModal() {
-            document.getElementById('addStudentModal').classList.remove('hidden');
-            document.getElementById('addStudentModal').classList.add('flex');
-        }
-        function closeAddStudentModal() {
-            document.getElementById('addStudentModal').classList.add('hidden');
-            document.getElementById('addStudentModal').classList.remove('flex');
-        }
-        function saveStudent() {
-            const name = document.getElementById('newStudentName').value.trim();
-            const studentId = document.getElementById('newStudentId').value.trim();
-            const grade = document.getElementById('newStudentGrade').value.trim();
-
-            if (!name || !studentId) {
-                alert('請填寫學生姓名與學號！');
-                return;
-            }
-
-            const newStudent = {
-                id: Date.now().toString(),
-                studentId,
-                name,
-                grade: grade || '未指定班級',
-                records: [],
-                scores: { score1: 3, score2: 3, score3: 3, score4: 3 },
-                summary: ''
-            };
-
-            students.push(newStudent);
-            saveToStorage();
-            closeAddStudentModal();
-            selectStudent(newStudent.id);
-
-            // Clear inputs
-            document.getElementById('newStudentName').value = '';
-            document.getElementById('newStudentId').value = '';
-            document.getElementById('newStudentGrade').value = '';
-        }
-
-        function deleteCurrentStudent() {
-            if (!confirm('確定要刪除這位學生的所有紀錄嗎？此動作無法復原。')) return;
-            students = students.filter(s => s.id !== currentStudentId);
-            saveToStorage();
-            currentStudentId = null;
-            renderStudentList();
-
-            if (students.length > 0) {
-                selectStudent(students[0].id);
-            } else {
-                document.getElementById('workspace').classList.add('hidden');
-                document.getElementById('emptyState').classList.remove('hidden');
-            }
-        }
-
-        // Print Report
-        function printReport() {
-            switchTab('report');
-            setTimeout(() => {
-                window.print();
-            }, 200);
-        }
-
-        // Data Export / Import
-        function exportData() {
-            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(students, null, 2));
-            const dlAnchorElem = document.createElement('a');
-            dlAnchorElem.setAttribute("href", dataStr);
-            dlAnchorElem.setAttribute("download", `student_records_${new Date().toISOString().split('T')[0]}.json`);
-            dlAnchorElem.click();
-        }
-
-        function importData() {
-            document.getElementById('importFile').click();
-        }
-
-        function handleImport(e) {
-            const file = e.target.files[0];
-            if (!file) return;
-
-            const reader = new FileReader();
-            reader.onload = function(event) {
-                try {
-                    const imported = JSON.parse(event.target.result);
-                    if (Array.isArray(imported)) {
-                        students = imported;
-                        saveToStorage();
-                        renderStudentList();
-                        if (students.length > 0) selectStudent(students[0].id);
-                        alert('成功匯入學生紀錄資料！');
-                    } else {
-                        alert('匯入的檔案格式不正確。');
-                    }
-                } catch (err) {
-                    alert('讀取檔案失敗：' + err.message);
+        const reader = new FileReader();
+        reader.onload = async function(e) {
+            try {
+                const importedRecords = JSON.parse(e.target.result);
+                if (!Array.isArray(importedRecords)) {
+                    alert('匯入格式不符合！');
+                    return;
                 }
-            };
-            reader.readAsText(file);
-        }
-    </script>
+
+                let addedCount = 0;
+                let skippedCount = 0;
+
+                for (let newItem of importedRecords) {
+                    if (!newItem.id) newItem.id = 'REC_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+                    const existing = await db.records.get(newItem.id);
+                    if (!existing) {
+                        await db.records.add(newItem);
+                        addedCount++;
+                    } else {
+                        skippedCount++;
+                    }
+                }
+
+                loadRecords();
+                alert(`✅ 匯入完成！新增：${addedCount} 筆，跳過重複：${skippedCount} 筆。`);
+            } catch (err) {
+                alert('解析 JSON 檔案失敗！');
+            }
+            event.target.value = '';
+        };
+        reader.readAsText(file);
+    }
+
+    // 初始化選單
+    updateClassFilterDropdown();
+    onClassFilterChange();
+    renderCustomTags();
+</script>
+
 </body>
 </html>
