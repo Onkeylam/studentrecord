@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>跨裝置學生觀察記錄與報告系統 (旗艦版)</title>
+    <title>跨裝置學生觀察記錄與報告系統 (旗艦完整版)</title>
     <!-- 引入輕量 IndexedDB 庫 Dexie.js 以支援大容量儲存 -->
     <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
     <style>
@@ -18,7 +18,7 @@
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); margin: 0; padding: 12px; color: var(--text); padding-bottom: 70px; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft JhengHei", sans-serif; background: var(--bg); margin: 0; padding: 12px; color: var(--text); padding-bottom: 70px; }
         .container { max-width: 1200px; margin: 0 auto; }
         .card { background: var(--card); padding: 16px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); margin-bottom: 16px; border: 1px solid var(--border); }
         h2, h3 { margin-top: 0; color: #1a202c; font-size: 1.1em; }
@@ -81,14 +81,16 @@
         .tag-btn:active { transform: scale(0.95); }
         .tag-btn.selected { background: #319795; color: white; border-color: #319795; }
 
-        /* 程度選擇器 */
-        .severity-selector { display: inline-flex; background: #edf2f7; border-radius: 6px; padding: 2px; font-size: 0.8em; }
-        .severity-btn { padding: 6px 10px; border-radius: 4px; cursor: pointer; border: none; background: transparent; font-size: 0.85em; }
-        .severity-btn.active { background: #c53030; color: white; font-weight: bold; }
+        /* 雙重評分選擇器 */
+        .score-box { background: #edf2f7; padding: 8px 12px; border-radius: 8px; margin-bottom: 10px; border: 1px solid #cbd5e0; }
+        .selector-group { display: flex; align-items: center; gap: 8px; margin-top: 4px; flex-wrap: wrap; }
+        .sel-btn { padding: 4px 8px; border-radius: 4px; cursor: pointer; border: 1px solid #cbd5e0; background: white; font-size: 0.8em; }
+        .sel-btn.active-freq { background: #2b6cb0; color: white; font-weight: bold; border-color: #2b6cb0; }
+        .sel-btn.active-sev { background: #c53030; color: white; font-weight: bold; border-color: #c53030; }
 
         /* 相片上傳區 */
         .photo-upload-area { background: #f8fafc; border: 1px dashed #cbd5e0; padding: 12px; border-radius: 8px; margin: 10px 0; }
-        .photo-preview { max-width: 100%; max-height: 180px; border-radius: 8px; display: none; object-fit: cover; margin-top: 8px; cursor: pointer; }
+        .photo-preview { max-width: 100%; max-height: 180px; border-radius: 8px; display: none; object-fit: cover; margin-top: 8px; cursor: pointer; touch-action: manipulation; }
 
         input, select, textarea { padding: 8px 10px; border: 1px solid var(--border); border-radius: 6px; font-size: 14px; width: 100%; }
         button.action-btn { background: #3182ce; color: white; border: none; padding: 12px 20px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1em; }
@@ -103,19 +105,23 @@
             max-width: 90px; 
             max-height: 90px; 
             border-radius: 6px; 
-            cursor: zoom-in; 
+            cursor: pointer; 
+            touch-action: manipulation;
             border: 1px solid var(--border);
             transition: transform 0.2s;
         }
-        .thumb-img:hover { transform: scale(1.05); }
+        .thumb-img:active { transform: scale(1.08); }
 
-        .badge-severity { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; color: white; }
-        .sev-輕微 { background: #319795; }
-        .sev-中等 { background: #dd6b20; }
-        .sev-嚴重 { background: #e53e3e; }
+        .badge-score { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 0.75em; font-weight: bold; color: white; }
+        .bg-freq { background: #2b6cb0; }
+        .bg-sev { background: #c53030; }
 
         .btn-table-edit { background: #3182ce; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; font-weight: bold; margin-bottom: 4px; display: inline-block; }
         .btn-table-del { background: #e53e3e; color: white; border: none; padding: 4px 8px; border-radius: 4px; cursor: pointer; font-size: 0.75em; font-weight: bold; display: inline-block; }
+
+        /* 典型事件 ABC 表格 */
+        .abc-box { background: #fffaf0; border: 1px solid #feebc8; border-radius: 8px; padding: 12px; margin-top: 10px; }
+        .abc-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; margin-top: 8px; }
 
         /* 全班概況矩陣圖卡樣式 */
         .class-summary-grid {
@@ -155,13 +161,14 @@
             z-index: 9999;
             left: 0; top: 0;
             width: 100%; height: 100%;
-            background-color: rgba(0, 0, 0, 0.88);
+            background-color: rgba(0, 0, 0, 0.92);
             justify-content: center; align-items: center;
             flex-direction: column; padding: 15px;
+            touch-action: manipulation;
         }
-        .image-modal-content { max-width: 95%; max-height: 85%; border-radius: 8px; object-fit: contain; }
-        .image-modal-caption { color: #ffffff; margin-top: 12px; font-size: 0.95em; text-align: center; background: rgba(255,255,255,0.15); padding: 6px 16px; border-radius: 20px; }
-        .image-modal-close { position: absolute; top: 15px; right: 20px; color: #ffffff; font-size: 32px; font-weight: bold; cursor: pointer; }
+        .image-modal-content { max-width: 95%; max-height: 80%; border-radius: 8px; object-fit: contain; }
+        .image-modal-caption { color: #ffffff; margin-top: 12px; font-size: 0.95em; text-align: center; background: rgba(255,255,255,0.2); padding: 8px 16px; border-radius: 20px; }
+        .image-modal-close { position: absolute; top: 15px; right: 20px; color: #ffffff; font-size: 36px; font-weight: bold; cursor: pointer; padding: 8px; }
 
         /* 手機版底部導航欄 */
         .mobile-nav {
@@ -190,29 +197,35 @@
             .mobile-nav { display: flex; }
         }
 
-        /* 列印樣式優化 */
+        /* 修正後的列印樣式：確保報告可正確輸出至 PDF */
         @media print {
-            .no-print { display: none !important; }
-            body { padding: 0; background: white; }
-            .card { box-shadow: none; border: none; padding: 0; }
-            .report-preview-box { display: block !important; border: none; padding: 0; }
+            .no-print, .card, .mobile-nav, .image-modal { 
+                display: none !important; 
+            }
+            #sec-records, #reportBox { 
+                display: block !important; 
+                border: none !important; 
+                box-shadow: none !important;
+                padding: 0 !important;
+                margin: 0 !important;
+            }
+            body { background: white; padding: 0; font-size: 11pt; color: black; }
             .report-grid { grid-template-columns: repeat(2, 1fr); }
             .thumb-img { max-width: 180px; max-height: 180px; }
-            .image-modal { display: none !important; }
             tr, .class-summary-card { page-break-inside: avoid; break-inside: avoid; }
+            .ep-page-break { page-break-before: always; margin-top: 20px; }
         }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h2 class="no-print">🏫 學生觀察記錄與報告系統</h2>
+    <h2 class="no-print">🏫 學生觀察記錄與報告系統 (EP完整與簡化報告版)</h2>
 
     <!-- 1. 選擇班別與學生區塊 -->
     <div class="card no-print" id="sec-students">
         <h3>1. 選擇班別與學生</h3>
 
-        <!-- 功能分組工具列：班級管理區 -->
         <div class="toolbar-group">
             <div class="toolbar-title">🏫 班級設定與圖示管理</div>
             <div class="flex">
@@ -231,7 +244,6 @@
             </div>
         </div>
 
-        <!-- 班級選擇與即時搜尋列 -->
         <div class="flex" style="margin-top: 8px; background: #ebf8ff; padding: 10px; border-radius: 8px; border: 1px solid #bee3f8; gap: 15px;">
             <label style="font-weight:bold; font-size:0.95em; color: #2b6cb0;">🏫 登記紀錄班別：
                 <select id="classFilter" onchange="onClassFilterChange()" style="width: auto; display: inline-block; padding: 6px 16px; font-weight: bold; border-color: #3182ce; font-size:0.95em; cursor:pointer;"></select>
@@ -244,63 +256,91 @@
         <div class="student-grid" id="studentGrid"></div>
     </div>
 
-    <!-- 2. 特徵標籤與程度設定 -->
+    <!-- 2. 選擇學科觀察項目 (包含 ASD 中英數) 與 雙重指標矩陣 -->
     <div class="card no-print" id="sec-tags">
-        <h3>2. 觀察行為特徵標籤</h3>
-        <div class="flex" style="margin-bottom: 10px;">
-            <label style="font-size:0.85em; font-weight:bold;">行為程度：</label>
-            <div class="severity-selector">
-                <button type="button" class="severity-btn" onclick="setGlobalSeverity('輕微', this)">輕微</button>
-                <button type="button" class="severity-btn active" onclick="setGlobalSeverity('中等', this)">中等</button>
-                <button type="button" class="severity-btn" onclick="setGlobalSeverity('嚴重/高頻', this)">嚴重/高頻</button>
+        <h3>2. 選擇學科觀察項目與評分矩陣</h3>
+
+        <!-- 雙重評分選擇器 -->
+        <div class="score-box">
+            <div style="font-size:0.85em; font-weight:bold;">📊 選定特徵的評分設定：</div>
+            
+            <div class="selector-group">
+                <span style="font-size:0.8em; font-weight:bold; color:#2b6cb0;">頻率 (0–4)：</span>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(0, this)">0=沒有</button>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(1, this)">1=極少</button>
+                <button type="button" class="sel-btn active-freq" onclick="setGlobalFreq(2, this)">2=偶爾</button>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(3, this)">3=經常</button>
+                <button type="button" class="sel-btn" onclick="setGlobalFreq(4, this)">4=每天</button>
+            </div>
+
+            <div class="selector-group" style="margin-top:6px;">
+                <span style="font-size:0.8em; font-weight:bold; color:#c53030;">嚴重程度 (1–3)：</span>
+                <button type="button" class="sel-btn" onclick="setGlobalSev(1, this)">1=輕微</button>
+                <button type="button" class="sel-btn active-sev" onclick="setGlobalSev(2, this)">2=中等</button>
+                <button type="button" class="sel-btn" onclick="setGlobalSev(3, this)">3=嚴重</button>
             </div>
         </div>
 
+        <!-- 按學科劃分的頁籤選單 -->
         <div class="tab-menu">
-            <button class="tab-btn active" onclick="switchTab('exam_marking')">📝 測驗批改</button>
-            <button class="tab-btn" onclick="switchTab('spld')">📖 讀寫/鏡像</button>
-            <button class="tab-btn" onclick="switchTab('social')">🤝 社交技巧</button>
-            <button class="tab-btn" onclick="switchTab('adhd')">⚡ 專注表現</button>
-            <button class="tab-btn" onclick="switchTab('asd')">🧩 言語感官</button>
-            <button class="tab-btn" onclick="switchTab('ef')">🧠 執行/理解</button>
-            <button class="tab-btn" onclick="switchTab('custom_tags')">✍️ 自訂關注</button>
+            <button class="tab-btn active" onclick="switchTab('tab_chi')">📕 中文科觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_eng')">📘 英文科觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_math')">📐 數學科觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_asd')">🧩 ASD 專屬觀察</button>
+            <button class="tab-btn" onclick="switchTab('tab_other')">🏫 其他/課堂通用</button>
+            <button class="tab-btn" onclick="switchTab('custom_tags')">✍️ 自訂觀察項目</button>
         </div>
 
-        <div id="exam_marking" class="tab-content active">
-            <div class="tag-btn" onclick="toggleTag(this, '試卷後半段鏡像字飆升')">試卷後半段鏡像字飆升</div>
-            <div class="tag-btn" onclick="toggleTag(this, '整頁/整大題遺漏未作答')">整頁 / 整大題遺漏未作答</div>
-            <div class="tag-btn" onclick="toggleTag(this, '看錯題目符號/指示')">看錯題目符號 / 指示</div>
-            <div class="tag-btn" onclick="toggleTag(this, '試卷有強烈塗黑/擦破痕跡')">試卷有強烈塗黑 / 擦破痕跡</div>
+        <!-- 中文科觀察項目 -->
+        <div id="tab_chi" class="tab-content active">
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 認讀課文生字困難/常猜字跳字')">認讀課文生字困難 / 常猜字跳字</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 部件顛倒/倒置/容易混淆字形')">部件顛倒 / 倒置 / 容易混淆字形</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 默寫成績落後/漏字/錯字/跳行')">默寫成績落後 / 漏字 / 錯字 / 跳行</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 抄寫課文漏字/錯字/速度慢/筆順錯')">抄寫課文漏字 / 錯字 / 速度慢 / 筆順錯</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 閱讀理解難找出重點/難作推論')">閱讀理解難找出重點 / 難作推論</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文] 寫作難組織句子或段落/內容短')">寫作難組織句子或段落 / 內容短</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文-ASD] 難理解故事角色感受/動機')">🧩 ASD: 難理解故事角色感受 / 動機</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[中文-ASD] 難理解比喻/成語/課文寓意')">🧩 ASD: 難理解比喻 / 成語 / 課文寓意</div>
         </div>
 
-        <div id="spld" class="tab-content">
-            <div class="tag-btn" onclick="toggleTag(this, 'b/d/p/q 鏡像字')">b/d/p/q 鏡像字</div>
-            <div class="tag-btn" onclick="toggleTag(this, '中文部件顛倒 / 倒置')">中文部件顛倒 / 倒置</div>
-            <div class="tag-btn" onclick="toggleTag(this, '跳行 / 跳字 / 漏字')">跳行 / 跳字 / 漏字</div>
-            <div class="tag-btn" onclick="toggleTag(this, '抄寫速度極慢')">抄寫速度極慢</div>
+        <!-- 英文科觀察項目 -->
+        <div id="tab_eng" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 認讀英文字/常見字困難')">認讀英文字 / 常見字困難</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] b/d/p/q 鏡像字/字母順序混淆')">b/d/p/q 鏡像字 / 字母順序混淆</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 默寫/拼字表現弱/文法錯')">默寫 / 拼字表現弱 / 文法錯</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 閱讀英文句子不流暢/難理解')">閱讀英文句子不流暢 / 難理解</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文] 英語發音不準/口語回應被動短')">英語發音不準 / 口語回應被動短</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文-ASD] 難理解英文故事情境/角色關係')">🧩 ASD: 難理解英文故事情境 / 角色關係</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[英文-ASD] 難理解慣用語/幽默/隱含意思')">🧩 ASD: 難理解慣用語 / 幽默 / 隱含意思</div>
         </div>
 
-        <div id="social" class="tab-content">
-            <div class="tag-btn" onclick="toggleTag(this, '難以融入小組 / 經常被孤立')">難以融入小組 / 經常被孤立</div>
-            <div class="tag-btn" onclick="toggleTag(this, '不願分享 / 獨佔教具')">不願分享 / 獨佔教具</div>
-            <div class="tag-btn" onclick="toggleTag(this, '說話欠禮貌 / 直言冒犯')">說話欠禮貌 / 直言冒犯</div>
+        <!-- 數學科觀察項目 -->
+        <div id="tab_math" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 抄錯數字/看漏題目符號')">抄錯數字 / 看漏題目符號</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 難記憶乘數表/公式/計算步驟')">難記憶乘數表 / 公式 / 計算步驟</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 難理解文字應用題/選相關資料')">難理解文字應用題 / 選相關資料</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學] 數學詞彙弱(一共/剩餘/平均)')">數學詞彙弱 (一共 / 剩餘 / 平均)</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學-ASD] 難理解圖表/圖像/抽象數學概念')">🧩 ASD: 難理解圖表 / 圖像 / 抽象概念</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[數學-ASD] 堅持單一解法/轉換題型困難')">🧩 ASD: 堅持單一解法 / 轉換題型困難</div>
         </div>
 
-        <div id="adhd" class="tab-content">
-            <div class="tag-btn" onclick="toggleTag(this, '多嘴 / 頻繁說話')">多嘴 / 頻繁說話</div>
-            <div class="tag-btn" onclick="toggleTag(this, '打斷話語 / 搶先回答')">打斷話語 / 搶先回答</div>
-            <div class="tag-btn" onclick="toggleTag(this, '無法維持專注 (>10分鐘)')">無法維持專注 (>10分鐘)</div>
+        <!-- ASD 專屬頁籤 -->
+        <div id="tab_asd" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 需要具體/清晰及逐步指示')">需要具體 / 清晰及逐步指示</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 對轉堂/轉活動/突發改變反應大')">對轉堂 / 轉活動 / 突發改變反應大</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 對感興趣主題過度投入/難轉移')">對感興趣主題過度投入 / 難轉移</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 難理解任務隱藏要求/非字面意思')">難理解任務隱藏要求 / 非字面意思</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 對聲音/光線/觸感感官刺激敏感')">對聲音 / 光線 / 觸感感官刺激敏感</div>
+            <div class="tag-btn" onclick="toggleTag(this, '[ASD] 堅持固定程序/座位/物件擺放方式')">堅持固定程序 / 座位 / 物件擺放方式</div>
         </div>
 
-        <div id="asd" class="tab-content">
-            <div class="tag-btn" onclick="toggleTag(this, '自言自語 / 發出聲音')">自言自語 / 發出聲音</div>
-            <div class="tag-btn" onclick="toggleTag(this, '重複特定字詞 / 鸚鵡學舌')">重複特定字詞 / 鸚鵡學舌</div>
-        </div>
-
-        <div id="ef" class="tab-content">
-            <div class="tag-btn" onclick="toggleTag(this, '理解力較弱 / 指示理解困難')">理解力較弱 / 指示理解困難</div>
-            <div class="tag-btn" onclick="toggleTag(this, '忘記多重指令')">忘記多重指令</div>
-            <div class="tag-btn" onclick="toggleTag(this, '遲遲無法開始作答')">遲遲無法開始作答</div>
+        <!-- 其他/課堂通用觀察項目 -->
+        <div id="tab_other" class="tab-content">
+            <div class="tag-btn" onclick="toggleTag(this, '難長時間維持專注(>10分鐘)/發呆')">難長時間維持專注 (>10分鐘) / 發呆</div>
+            <div class="tag-btn" onclick="toggleTag(this, '坐不定/扭動身體/擅自離座')">坐不定 / 扭動身體 / 擅自離座</div>
+            <div class="tag-btn" onclick="toggleTag(this, '玩弄文具/未聽完問題便搶答')">玩弄文具 / 未聽完問題便搶答</div>
+            <div class="tag-btn" onclick="toggleTag(this, '常欠交/漏做功課/遺失物件')">常欠交 / 漏做功課 / 遺失物件</div>
+            <div class="tag-btn" onclick="toggleTag(this, '難融入小組/難理解表情社交暗示')">難融入小組 / 難理解表情社交暗示</div>
         </div>
 
         <div id="custom_tags" class="tab-content" style="flex-direction: column; align-items: flex-start; gap: 10px; width: 100%;">
@@ -312,38 +352,84 @@
         </div>
     </div>
 
-    <!-- 3. 情境與照片上傳區 -->
+    <!-- 3. 情境、典型事件 ABC 記錄 (快速選單版) 與照片上傳區 -->
     <div class="card no-print" id="sec-photo">
-        <h3>3. 情境與照片佐證</h3>
+        <h3>3. 情境、典型事件 (ABC 分析可選擇) 與照片佐證</h3>
         <div class="flex" style="margin-bottom: 8px;">
             <div style="flex:1;">
                 <label style="font-size:0.85em; font-weight:bold;">科目：</label>
                 <select id="subject" style="margin-top:4px;">
-                    <option value="英文">英文</option>
                     <option value="中文">中文</option>
+                    <option value="英文">英文</option>
                     <option value="數學">數學</option>
                     <option value="其他">其他</option>
                 </select>
             </div>
             <div style="flex:1;">
-                <label style="font-size:0.85em; font-weight:bold;">情境：</label>
+                <label style="font-size:0.85em; font-weight:bold;">觀察情境：</label>
                 <select id="trigger" style="margin-top:4px;">
                     <option value="批改測驗/考試卷">批改測驗/考試卷</option>
-                    <option value="批改默書/隨堂小測">批改默書/隨堂小測</option>
-                    <option value="批改日常功課/工作紙">批改日常功課/工作紙</option>
-                    <option value="課堂觀察/小組活動">課堂觀察/小組活動</option>
+                    <option value="課堂觀察/日常教學">課堂觀察/日常教學</option>
+                    <option value="小組活動/口語練習">小組活動/口語練習</option>
+                    <option value="小息/午膳/全校活動">小息/午膳/全校活動</option>
                 </select>
             </div>
         </div>
 
+        <!-- 典型事件 ABC 快捷選單模組 -->
+        <div class="abc-box">
+            <div style="font-weight:bold; font-size:0.85em; color:#d69e2e; margin-bottom:6px;">📝 典型事件記錄 (ABC 行為分析 - 選單或輸入)：</div>
+            <div class="abc-grid">
+                <div>
+                    <label style="font-size:0.75em; font-weight:bold;">前因 (Antecedent)：</label>
+                    <select id="abcA_select" onchange="syncAbcInput('abcA_select', 'abcA')" style="margin-top:2px;">
+                        <option value="">-- 請選擇常見前因 --</option>
+                        <option value="進行測驗/默寫/考試時">進行測驗/默寫/考試時</option>
+                        <option value="老師進行全班講解/指示時">老師進行全班講解/指示時</option>
+                        <option value="進行個人獨立書寫/閱讀任務時">進行個人獨立書寫/閱讀任務時</option>
+                        <option value="進行小組活動/分組討論時">進行小組活動/分組討論時</option>
+                        <option value="轉堂/轉換活動/等待時間">轉堂/轉換活動/等待時間</option>
+                        <option value="小息/午膳/自由活動時間">小息/午膳/自由活動時間</option>
+                    </select>
+                    <input type="text" id="abcA" placeholder="或自由輸入前因..." style="margin-top:4px;">
+                </div>
+                <div>
+                    <label style="font-size:0.75em; font-weight:bold;">學生行為 (Behavior)：</label>
+                    <select id="abcB_select" onchange="syncAbcInput('abcB_select', 'abcB')" style="margin-top:2px;">
+                        <option value="">-- 請選擇常見行為 --</option>
+                        <option value="開始玩弄文具/物件/發呆">開始玩弄文具/物件/發呆</option>
+                        <option value="擅自離座/扭動身體/走動">擅自離座/扭動身體/走動</option>
+                        <option value="發出聲音/插嘴/未聽完搶答">發出聲音/插嘴/未聽完搶答</option>
+                        <option value="停筆/拒絕作答/逃避任務">停筆/拒絕作答/逃避任務</option>
+                        <option value="出現情緒激動/哭鬧/發脾氣">出現情緒激動/哭鬧/發脾氣</option>
+                        <option value="與同學發生爭執/碰撞/搶奪物件">與同學發生爭執/碰撞/搶奪物件</option>
+                    </select>
+                    <input type="text" id="abcB" placeholder="或自由輸入行為..." style="margin-top:4px;">
+                </div>
+                <div>
+                    <label style="font-size:0.75em; font-weight:bold;">老師處理與結果 (Consequence)：</label>
+                    <select id="abcC_select" onchange="syncAbcInput('abcC_select', 'abcC')" style="margin-top:2px;">
+                        <option value="">-- 請選擇常見處理 --</option>
+                        <option value="老師口頭提示後回到任務">老師口頭提示後回到任務</option>
+                        <option value="給予非言語提示(敲桌/眼神/手勢)">給予非言語提示(敲桌/眼神/手勢)</option>
+                        <option value="提供拆解步驟/減省任務量後完成">提供拆解步驟/減省任務量後完成</option>
+                        <option value="安排暫離座位/到靜心角冷靜">安排暫離座位/到靜心角冷靜</option>
+                        <option value="給予正向鼓勵/獎勵代幣後改善">給予正向鼓勵/獎勵代幣後改善</option>
+                        <option value="需要轉交輔導組/課後溝通處理">需要轉交輔導組/課後溝通處理</option>
+                    </select>
+                    <input type="text" id="abcC" placeholder="或自由輸入結果..." style="margin-top:4px;">
+                </div>
+            </div>
+        </div>
+
         <div class="photo-upload-area">
-            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷相片 (點擊圖片可預覽大圖)：</label>
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷/行為相片 (點擊圖片可預覽大圖)：</label>
             <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
-            <img id="photoPreview" class="photo-preview" alt="相片預覽" onclick="openImageModal(this.src, '預覽照片')">
+            <img id="photoPreview" class="photo-preview" alt="相片預覽" onclick="openImageModal(this.src, '預覽照片')" ontouchstart="openImageModal(this.src, '預覽照片')">
             <input type="text" id="photoNoteInput" placeholder="照片佐證說明 (例: 第3題 bed 寫成 deb)" style="margin-top:8px; display:none;">
         </div>
 
-        <textarea id="notes" rows="2" placeholder="補充說明 (例: 今天狀態安靜/情緒較急躁)"></textarea>
+        <textarea id="notes" rows="2" placeholder="補充說明 / 老師建議支援策略效果"></textarea>
 
         <div style="margin-top: 12px;">
             <button class="action-btn" onclick="saveRecord()">💾 儲存觀察紀錄</button>
@@ -359,12 +445,13 @@
             <div class="toolbar-title">📄 報告生成與資料維護工具</div>
             <div class="flex">
                 <button class="btn btn-warning" onclick="generateClassOverviewReport()">📊 本班觀察總覽</button>
-                <button class="btn btn-primary" onclick="generateReport()">📄 單人觀察報告</button>
+                <button class="btn btn-primary" onclick="generateSimpleReport()">📄 產生簡化版報告</button>
+                <button class="btn btn-primary" onclick="generateFullEPReport()" style="background:#2c5282;">📑 產生 EP 完整9頁報告</button>
                 <button class="btn btn-success" onclick="exportData()">💾 匯出 JSON</button>
                 <button class="btn btn-success" onclick="exportCSV()">📊 匯出 CSV (Excel)</button>
                 <button class="btn btn-secondary" onclick="document.getElementById('importFileInput').click()">📂 匯入 JSON 備份</button>
                 <input type="file" id="importFileInput" accept=".json" onchange="importData(event)" style="display:none;">
-                <button class="btn btn-outline" onclick="window.print()" style="margin-left:auto;">🖨️ 列印 / 存為 PDF</button>
+                <button class="btn btn-outline" onclick="triggerPrintWithReport()" style="margin-left:auto;">🖨️ 列印 / 存為 PDF</button>
             </div>
         </div>
 
@@ -378,18 +465,10 @@
             <label style="font-weight:bold; font-size:0.85em;">科目：
                 <select id="filterSubject" onchange="loadRecords()" style="width:auto; padding:4px 8px;">
                     <option value="ALL">全部科目</option>
-                    <option value="英文">英文</option>
                     <option value="中文">中文</option>
+                    <option value="英文">英文</option>
                     <option value="數學">數學</option>
                     <option value="其他">其他</option>
-                </select>
-            </label>
-            <label style="font-weight:bold; font-size:0.85em;">程度：
-                <select id="filterSeverity" onchange="loadRecords()" style="width:auto; padding:4px 8px;">
-                    <option value="ALL">全部程度</option>
-                    <option value="輕微">輕微</option>
-                    <option value="中等">中等</option>
-                    <option value="嚴重">嚴重/高頻</option>
                 </select>
             </label>
             <button class="btn btn-danger" onclick="batchDeleteRecords()" style="margin-left:auto;">🗑️ 批量刪除勾選項</button>
@@ -405,12 +484,12 @@
                 <thead>
                     <tr>
                         <th style="width: 4%; text-align:center;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll(this)"></th>
-                        <th style="width: 14%;">時間</th>
-                        <th style="width: 12%;">學生</th>
-                        <th style="width: 14%;">情境</th>
-                        <th style="width: 22%;">觀察特徵</th>
-                        <th style="width: 14%;">照片證明 (點擊放大)</th>
-                        <th style="width: 12%;">備註</th>
+                        <th style="width: 12%;">時間</th>
+                        <th style="width: 10%;">學生</th>
+                        <th style="width: 10%;">科目/情境</th>
+                        <th style="width: 24%;">觀察特徵 (頻率 / 嚴重度)</th>
+                        <th style="width: 18%;">ABC 典型事件</th>
+                        <th style="width: 14%;">佐證照片</th>
                         <th style="width: 8%; text-align:center;">操作</th>
                     </tr>
                 </thead>
@@ -436,7 +515,7 @@
     </div>
 </div>
 
-<div id="imageModal" class="image-modal" onclick="closeImageModal()">
+<div id="imageModal" class="image-modal" onclick="closeImageModal()" ontouchstart="closeImageModal()">
     <span class="image-modal-close" onclick="closeImageModal()">&times;</span>
     <img id="imageModalImg" class="image-modal-content" src="" alt="放大照片">
     <div id="imageModalCaption" class="image-modal-caption"></div>
@@ -460,7 +539,7 @@
 <script>
     /* 1. 初始化 IndexedDB 大容量資料庫 (Dexie.js) */
     const db = new Dexie("SenObserveDB");
-    db.version(1).stores({
+    db.version(3).stores({
         records: 'id, studentId, time, context'
     });
 
@@ -499,7 +578,10 @@
 
     let studentsDetail = JSON.parse(localStorage.getItem('sen_students_list')) || generateDefaultStudents();
     let currentSelectedStudentId = 'ALL';
-    let currentSeverity = '中等';
+    
+    let currentFreq = 2; // 0-4
+    let currentSev = 2;  // 1-3
+
     let selectedTags = new Map();
     let currentBase64Image = "";
     let currentPage = 1;
@@ -508,6 +590,13 @@
         localStorage.setItem('sen_class_list', JSON.stringify(classList));
         localStorage.setItem('sen_students_list', JSON.stringify(studentsDetail));
         localStorage.setItem('sen_custom_tags', JSON.stringify(customTagList));
+    }
+
+    function syncAbcInput(selectId, inputId) {
+        const val = document.getElementById(selectId).value;
+        if (val) {
+            document.getElementById(inputId).value = val;
+        }
     }
 
     function updateClassFilterDropdown() {
@@ -701,7 +790,7 @@
         stu.hasReport = hasRep;
 
         if (hasRep) {
-            const repType = prompt(`請輸入報告類型 (例: SpLD / ADHD / ASD)：`, stu.reportType || 'SpLD');
+            const repType = prompt(`請選擇/輸入診斷 (SpLD/ASD/ADHD/語障)：`, stu.reportType || 'SpLD');
             const repNote = prompt(`請輸入調適事項 (例: 加時20% / 放大試卷)：`, stu.reportNote || '');
             stu.reportType = repType || '已診斷';
             stu.reportNote = repNote || '';
@@ -712,10 +801,16 @@
         filterStudent(id);
     }
 
-    function setGlobalSeverity(sev, btn) {
-        currentSeverity = sev;
-        document.querySelectorAll('.severity-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
+    function setGlobalFreq(val, btn) {
+        currentFreq = val;
+        btn.parentElement.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('active-freq'));
+        btn.classList.add('active-freq');
+    }
+
+    function setGlobalSev(val, btn) {
+        currentSev = val;
+        btn.parentElement.querySelectorAll('.sel-btn').forEach(b => b.classList.remove('active-sev'));
+        btn.classList.add('active-sev');
     }
 
     function toggleTag(el, tagText) {
@@ -723,7 +818,7 @@
             selectedTags.delete(tagText);
             el.classList.remove('selected');
         } else {
-            selectedTags.set(tagText, currentSeverity);
+            selectedTags.set(tagText, { freq: currentFreq, sev: currentSev });
             el.classList.add('selected');
         }
     }
@@ -731,7 +826,7 @@
     function addCustomTag() {
         const input = document.getElementById('customTagInput');
         const text = input.value.trim();
-        if (!text) { alert('請輸入自訂關注事項！'); return; }
+        if (!text) { alert('請輸入自訂觀察項目！'); return; }
         if (!customTagList.includes(text)) {
             customTagList.push(text);
             saveAllSettings();
@@ -799,9 +894,13 @@
         const photoNote = document.getElementById('photoNoteInput').value.trim();
         const notes = document.getElementById('notes').value.trim();
 
+        const abcA = document.getElementById('abcA').value.trim();
+        const abcB = document.getElementById('abcB').value.trim();
+        const abcC = document.getElementById('abcC').value.trim();
+
         const tagList = [];
-        selectedTags.forEach((sev, tag) => {
-            tagList.push({ tag: tag, severity: sev });
+        selectedTags.forEach((score, tag) => {
+            tagList.push({ tag: tag, freq: score.freq, sev: score.sev });
         });
 
         const newRecord = {
@@ -811,6 +910,7 @@
             context: `${subject} (${trigger})`,
             subject: subject,
             tags: tagList,
+            abc: (abcA || abcB || abcC) ? { a: abcA, b: abcB, c: abcC } : null,
             image: currentBase64Image,
             photoNote: photoNote,
             notes: notes
@@ -823,6 +923,12 @@
         document.getElementById('photoNoteInput').value = '';
         document.getElementById('photoPreview').style.display = 'none';
         document.getElementById('photoNoteInput').style.display = 'none';
+        document.getElementById('abcA').value = '';
+        document.getElementById('abcB').value = '';
+        document.getElementById('abcC').value = '';
+        document.getElementById('abcA_select').value = '';
+        document.getElementById('abcB_select').value = '';
+        document.getElementById('abcC_select').value = '';
         currentBase64Image = "";
         selectedTags.clear();
         document.querySelectorAll('.tag-btn').forEach(btn => btn.classList.remove('selected'));
@@ -832,7 +938,7 @@
             loadRecords();
         }
 
-        alert('觀察紀錄已成功儲存至大容量資料庫！');
+        alert('觀察紀錄已成功儲存！');
     }
 
     async function getFilteredRecords() {
@@ -841,20 +947,14 @@
 
         const allRecords = await db.records.toArray();
         const filterSub = document.getElementById('filterSubject').value;
-        const filterSev = document.getElementById('filterSeverity').value;
 
         return allRecords.filter(r => {
             const stuObj = studentsDetail.find(s => s.id === r.studentId);
             const classMatch = (stuObj && stuObj.class === cls);
             const studentMatch = (currentSelectedStudentId === 'ALL') || (r.studentId === currentSelectedStudentId);
             const subjectMatch = (filterSub === 'ALL') || (r.context && r.context.startsWith(filterSub));
-            
-            let severityMatch = true;
-            if (filterSev !== 'ALL') {
-                severityMatch = Array.isArray(r.tags) && r.tags.some(t => t.severity.includes(filterSev));
-            }
 
-            return classMatch && studentMatch && subjectMatch && severityMatch;
+            return classMatch && studentMatch && subjectMatch;
         }).sort((a,b) => b.id.localeCompare(a.id));
     }
 
@@ -892,16 +992,22 @@
             let imgTdHtml = '-';
             if (r.image) {
                 const noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
-                imgTdHtml = `<img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')">`;
+                imgTdHtml = `<img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')" ontouchstart="openImageModal('${r.image}', '${noteEscaped}')">`;
                 if (r.photoNote) imgTdHtml += `<br><small style="color:#4a5568;">📷 ${r.photoNote}</small>`;
             }
 
             let tagsHtml = '-';
             if (Array.isArray(r.tags) && r.tags.length > 0) {
                 tagsHtml = r.tags.map(t => {
-                    let sevClass = t.severity.includes('嚴重') ? 'sev-嚴重' : (t.severity === '輕微' ? 'sev-輕微' : 'sev-中等');
-                    return `• ${t.tag} <span class="badge-severity ${sevClass}">${t.severity}</span>`;
+                    const fVal = t.freq !== undefined ? t.freq : 2;
+                    const sVal = t.sev !== undefined ? t.sev : 2;
+                    return `• ${t.tag} <span class="badge-score bg-freq">頻率:${fVal}</span> <span class="badge-score bg-sev">嚴重度:${sVal}</span>`;
                 }).join('<br>');
+            }
+
+            let abcHtml = '-';
+            if (r.abc && (r.abc.a || r.abc.b || r.abc.c)) {
+                abcHtml = `<small><b>前因:</b> ${r.abc.a||'-'}<br><b>行為:</b> ${r.abc.b||'-'}<br><b>結果:</b> ${r.abc.c||'-'}</small>`;
             }
 
             tr.innerHTML = `
@@ -910,8 +1016,8 @@
                 <td><b>${stuObj.name}</b><br><small>[${stuObj.class}]</small></td>
                 <td>${r.context}</td>
                 <td>${tagsHtml}</td>
+                <td>${abcHtml}</td>
                 <td>${imgTdHtml}</td>
-                <td>${r.notes || '-'}</td>
                 <td style="text-align:center;">
                     <button class="btn-table-edit" onclick="editRecord('${r.id}')">✏️ 編輯</button><br>
                     <button class="btn-table-del" onclick="deleteRecord('${r.id}')">🗑️ 刪除</button>
@@ -1004,6 +1110,21 @@
         document.getElementById('imageModal').style.display = 'none';
     }
 
+    /* 🖨️ 自動觸發報告並開啟 PDF 列印視窗 */
+    async function triggerPrintWithReport() {
+        const reportBox = document.getElementById('reportBox');
+        if (reportBox.style.display === 'none' || reportBox.innerHTML.trim() === '') {
+            if (currentSelectedStudentId !== 'ALL') {
+                await generateSimpleReport();
+            } else {
+                await generateClassOverviewReport();
+            }
+        }
+        setTimeout(() => {
+            window.print();
+        }, 300);
+    }
+
     async function generateClassOverviewReport() {
         const cls = document.getElementById('reportClassFilter').value;
         if (!cls) { alert('請先在上方選擇要檢視的班別！'); return; }
@@ -1036,7 +1157,7 @@
             
             let hasSevere = false;
             stuRecs.forEach(r => {
-                if (Array.isArray(r.tags) && r.tags.some(t => t.severity === '嚴重/高頻')) {
+                if (Array.isArray(r.tags) && r.tags.some(t => t.sev === 3 || t.freq >= 3)) {
                     hasSevere = true;
                 }
             });
@@ -1084,9 +1205,10 @@
         reportBox.scrollIntoView({ behavior: 'smooth' });
     }
 
-    async function generateReport() {
+    /* 📄 1. 生成簡化版報告 */
+    async function generateSimpleReport() {
         if (currentSelectedStudentId === 'ALL') {
-            alert('請先在第 1 部分點擊選擇一位特定學生，以生成個人觀察報告！');
+            alert('請先在第 1 部分點擊選擇一位特定學生！');
             return;
         }
 
@@ -1095,23 +1217,132 @@
         const records = allRecs.filter(r => r.studentId === currentSelectedStudentId);
         const reportBox = document.getElementById('reportBox');
 
-        const tagCounts = {};
-        let severeCount = 0;
+        const tagMap = {};
         records.forEach(r => {
             if (Array.isArray(r.tags)) {
                 r.tags.forEach(t => {
-                    tagCounts[t.tag] = (tagCounts[t.tag] || 0) + 1;
-                    if (t.severity === '嚴重/高頻') severeCount++;
+                    const fVal = t.freq !== undefined ? t.freq : 2;
+                    const sVal = t.sev !== undefined ? t.sev : 2;
+                    tagMap[t.tag] = { freq: fVal, sev: sVal };
                 });
             }
         });
 
-        let tagSummaryHtml = Object.keys(tagCounts).map(t => `<li><b>${t}</b>：出現 ${tagCounts[t]} 次</li>`).join('') || '<li>暫無特定行為標註</li>';
+        let tagSummaryRows = Object.keys(tagMap).map(t => `
+            <tr>
+                <td>${t}</td>
+                <td style="text-align:center;">${tagMap[t].freq}</td>
+                <td style="text-align:center;">${tagMap[t].sev}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" style="text-align:center;">暫無行為標註紀錄</td></tr>';
+
+        const abcRecords = records.filter(r => r.abc && (r.abc.a || r.abc.b || r.abc.c));
+        let abcTableRows = abcRecords.map(r => `
+            <tr>
+                <td>${r.time}</td>
+                <td>${r.context}</td>
+                <td>${r.abc.a || '-'}</td>
+                <td>${r.abc.b || '-'}</td>
+                <td>${r.abc.c || '-'}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="5" style="text-align:center;">無 ABC 典型事件紀錄</td></tr>';
+
+        const today = new Date().toLocaleDateString('zh-HK');
+
+        reportBox.innerHTML = `
+            <div class="report-header">
+                <h2>📋 學生日常觀察摘要簡報 (簡化版)</h2>
+                <p style="font-size:0.85em; color:#555;">供校內會議 / 跨科老師快速參閱</p>
+            </div>
+
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <tr><th style="width:20%">學生姓名</th><td><b>${stu.name}</b></td><th style="width:20%">班別/座號</th><td>${stu.class} (${stu.seatNum})</td></tr>
+                <tr><th>已知診斷/狀態</th><td colspan="3">${stu.hasReport ? stu.reportType + ' (已確診)' : '需多加注意學生'}</td></tr>
+            </table>
+
+            <h3>📊 觀察特徵摘要與矩陣指標</h3>
+            <p style="font-size:0.8em; color:#666;"><b>頻率：</b>0=沒有 | 1=極少 | 2=偶爾 | 3=經常 | 4=每天<br><b>嚴重度：</b>1=輕微 | 2=中等 | 3=嚴重</p>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <thead>
+                    <tr>
+                        <th>觀察項目</th>
+                        <th style="width:20%; text-align:center;">頻率 (0–4)</th>
+                        <th style="width:20%; text-align:center;">嚴重程度 (1–3)</th>
+                    </tr>
+                </thead>
+                <tbody>${tagSummaryRows}</tbody>
+            </table>
+
+            <h3>📝 典型事件記錄 (ABC)</h3>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="width:15%">時間</th>
+                        <th style="width:15%">情境</th>
+                        <th style="width:20%">前因 (A)</th>
+                        <th style="width:25%">行為 (B)</th>
+                        <th style="width:25%">結果 (C)</th>
+                    </tr>
+                </thead>
+                <tbody>${abcTableRows}</tbody>
+            </table>
+
+            <div style="margin-top:25px; display:flex; justify-content:space-between; font-size:0.85em;">
+                <div><b>紀錄老師：</b>__________________</div>
+                <div><b>列印日期：</b>${today}</div>
+            </div>
+        `;
+
+        reportBox.style.display = 'block';
+        reportBox.scrollIntoView({ behavior: 'smooth' });
+    }
+
+    /* 📑 2. 生成 EP 完整 9 頁觀察報告 */
+    async function generateFullEPReport() {
+        if (currentSelectedStudentId === 'ALL') {
+            alert('請先在第 1 部分點擊選擇一位特定學生！');
+            return;
+        }
+
+        const stu = studentsDetail.find(s => s.id === currentSelectedStudentId);
+        const allRecs = await db.records.toArray();
+        const records = allRecs.filter(r => r.studentId === currentSelectedStudentId);
+        const reportBox = document.getElementById('reportBox');
+
+        const abcRecords = records.filter(r => r.abc && (r.abc.a || r.abc.b || r.abc.c));
+        let abcTableRows = abcRecords.map(r => `
+            <tr style="height:45px">
+                <td>${r.time}</td>
+                <td>${r.context}</td>
+                <td>${r.abc.a || '-'}</td>
+                <td>${r.abc.b || '-'}</td>
+                <td>${r.abc.c || '-'}</td>
+            </tr>
+        `).join('') || `<tr><td colspan="5" style="text-align:center; padding:15px; color:#718096;">尚無登錄 ABC 典型事件紀錄</td></tr>`;
+
+        const tagMap = {};
+        records.forEach(r => {
+            if (Array.isArray(r.tags)) {
+                r.tags.forEach(t => {
+                    const fVal = t.freq !== undefined ? t.freq : 2;
+                    const sVal = t.sev !== undefined ? t.sev : 2;
+                    tagMap[t.tag] = { freq: fVal, sev: sVal };
+                });
+            }
+        });
+
+        let tagSummaryRows = Object.keys(tagMap).map(t => `
+            <tr>
+                <td>${t}</td>
+                <td style="text-align:center;">${tagMap[t].freq}</td>
+                <td style="text-align:center;">${tagMap[t].sev}</td>
+            </tr>
+        `).join('') || '<tr><td colspan="3" style="text-align:center;">暫無行為標註紀錄</td></tr>';
 
         let recordsRows = records.map(r => {
-            let tagsText = r.tags.map(t => `${t.tag}(${t.severity})`).join(', ') || '無';
+            let tagsText = r.tags.map(t => `${t.tag}(頻率:${t.freq !== undefined ? t.freq : 2},嚴重:${t.sev !== undefined ? t.sev : 2})`).join(', ') || '無';
             let noteEscaped = (r.photoNote || '').replace(/'/g, "\\'");
-            let imgHtml = r.image ? `<br><img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')"><br><small>佐證：${r.photoNote || '無說明'}</small>` : '';
+            let imgHtml = r.image ? `<br><img src="${r.image}" class="thumb-img" onclick="openImageModal('${r.image}', '${noteEscaped}')" ontouchstart="openImageModal('${r.image}', '${noteEscaped}')"><br><small>佐證：${r.photoNote || '無說明'}</small>` : '';
             return `
                 <tr>
                     <td>${r.time}</td>
@@ -1120,42 +1351,65 @@
                     <td>${r.notes || '-'}${imgHtml}</td>
                 </tr>
             `;
-        }).join('');
+        }).join('') || '<tr><td colspan="4" style="text-align:center;">尚無詳細紀錄</td></tr>';
 
         const today = new Date().toLocaleDateString('zh-HK');
 
         reportBox.innerHTML = `
             <div class="report-header">
-                <h2>🏫 學生日常課堂觀察與行為紀錄報告</h2>
-                <p style="font-size:0.85em; color:#718096; margin-top:4px;">供教育心理學家 (EP) / 輔導組評估參考</p>
+                <h2>學生行為及學習觀察記錄表 (EP標準格式)</h2>
+                <p style="font-size:0.85em; color:#555;">供教育心理學家評估參考</p>
             </div>
 
-            <div class="report-grid">
-                <div><b>學生姓名/代號：</b>${stu.name}</div>
-                <div><b>班別/座號：</b>${stu.class} (${stu.seatNum})</div>
-                <div><b>報告日期：</b>${today}</div>
-                <div><b>觀察狀態：</b>${stu.hasReport ? stu.reportType + ' (已診斷)' : '需多加注意學生'}</div>
-                ${stu.reportNote ? `<div style="grid-column: span 2;"><b>調適措施：</b>${stu.reportNote}</div>` : ''}
-            </div>
-
-            <h3>📊 行為特徵頻率統計摘要</h3>
-            <ul>${tagSummaryHtml}</ul>
-            <p style="font-size:0.85em; color:#c53030;"><b>高風險標註：</b>累積標註「嚴重/高頻」特徵共 ${severeCount} 次。</p>
-
-            <h3>📝 詳細觀察紀錄清單 (${records.length} 次)</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width:20%;">日期時間</th>
-                        <th style="width:20%;">科目/情境</th>
-                        <th style="width:30%;">觀察行為與程度</th>
-                        <th style="width:30%;">備註與佐證照片</th>
-                    </tr>
-                </thead>
-                <tbody>${recordsRows || '<tr><td colspan="4" style="text-align:center;">尚無詳細紀錄</td></tr>'}</tbody>
+            <h3>第一頁：學生基本資料</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <tr><th style="width:20%">學生姓名</th><td><b>${stu.name}</b></td><th style="width:20%">班別/座號</th><td>${stu.class} (${stu.seatNum})</td></tr>
+                <tr><th>已知診斷/懷疑</th><td colspan="3">${stu.hasReport ? stu.reportType + ' (已診斷)' : '懷疑有 SEN 學習需要'}</td></tr>
+                <tr><th>現有支援</th><td colspan="3">${stu.reportNote || '校本學習支援 / 課堂觀察記錄中'}</td></tr>
             </table>
 
-            <div style="margin-top:30px; display:flex; justify-content:space-between; font-size:0.9em;">
+            <h3>第二頁：雙重指標矩陣評估 (頻率 0-4 / 嚴重度 1-3)</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <thead>
+                    <tr>
+                        <th>觀察項目 (包含中英數及 ASD 特徵)</th>
+                        <th style="width:20%; text-align:center;">頻率 0–4</th>
+                        <th style="width:20%; text-align:center;">嚴重程度 1–3</th>
+                    </tr>
+                </thead>
+                <tbody>${tagSummaryRows}</tbody>
+            </table>
+
+            <div class="ep-page-break"></div>
+            <h3>第三頁：典型事件記錄 (ABC 行為分析)</h3>
+            <table style="width:100%; border-collapse:collapse; margin-bottom:15px;">
+                <thead>
+                    <tr>
+                        <th style="width:15%">日期時間</th>
+                        <th style="width:15%">情境</th>
+                        <th style="width:20%">前因 (Antecedent)</th>
+                        <th style="width:25%">學生行為 (Behavior)</th>
+                        <th style="width:25%">老師處理及結果 (Consequence)</th>
+                    </tr>
+                </thead>
+                <tbody>${abcTableRows}</tbody>
+            </table>
+
+            <div class="ep-page-break"></div>
+            <h3>第四頁：日常觀察與照片佐證紀錄 (${records.length} 次)</h3>
+            <table style="width:100%; border-collapse:collapse;">
+                <thead>
+                    <tr>
+                        <th style="width:18%;">日期時間</th>
+                        <th style="width:18%;">科目/情境</th>
+                        <th style="width:32%;">觀察行為與指標</th>
+                        <th style="width:32%;">備註與佐證照片</th>
+                    </tr>
+                </thead>
+                <tbody>${recordsRows}</tbody>
+            </table>
+
+            <div style="margin-top:35px; display:flex; justify-content:space-between; font-size:0.9em;">
                 <div><b>觀察教師簽署：</b>__________________</div>
                 <div><b>日期：</b>${today}</div>
             </div>
@@ -1185,7 +1439,7 @@
         const blob = new Blob([dataStr], { type: 'application/json' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${cls}班_紀錄備份_${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `${cls}班_EP觀察紀錄備份_${new Date().toISOString().slice(0, 10)}.json`;
         a.click();
     }
 
@@ -1196,18 +1450,21 @@
         const filteredRecords = await getFilteredRecords();
         if (filteredRecords.length === 0) { alert(`【${cls} 班】目前沒有任何紀錄可匯出！`); return; }
 
-        let csvContent = "\uFEFF時間,學生,班別,情境,觀察特徵,補充說明\n";
+        let csvContent = "\uFEFF時間,學生,班別,情境,觀察特徵,ABC前因,ABC行為,ABC結果,補充說明\n";
         filteredRecords.forEach(r => {
             const stuObj = studentsDetail.find(s => s.id === r.studentId) || { name: r.studentId, class: '-' };
-            const tagsText = (r.tags || []).map(t => `${t.tag}(${t.severity})`).join('; ');
+            const tagsText = (r.tags || []).map(t => `${t.tag}(頻率:${t.freq},嚴重:${t.sev})`).join('; ');
             const cleanNotes = (r.notes || '').replace(/"/g, '""');
-            csvContent += `"${r.time}","${stuObj.name}","${stuObj.class}","${r.context}","${tagsText}","${cleanNotes}"\n`;
+            const abcA = r.abc ? (r.abc.a || '').replace(/"/g, '""') : '';
+            const abcB = r.abc ? (r.abc.b || '').replace(/"/g, '""') : '';
+            const abcC = r.abc ? (r.abc.c || '').replace(/"/g, '""') : '';
+            csvContent += `"${r.time}","${stuObj.name}","${stuObj.class}","${r.context}","${tagsText}","${abcA}","${abcB}","${abcC}","${cleanNotes}"\n`;
         });
 
         const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
         const a = document.createElement('a');
         a.href = URL.createObjectURL(blob);
-        a.download = `${cls}班_觀察紀錄_${new Date().toISOString().slice(0, 10)}.csv`;
+        a.download = `${cls}班_EP觀察紀錄_${new Date().toISOString().slice(0, 10)}.csv`;
         a.click();
     }
 
