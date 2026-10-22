@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>跨裝置學生觀察記錄與報告系統 (iOS縮放優化版)</title>
+    <title>跨裝置學生觀察記錄與報告系統 (iOS 雙指手勢極速版)</title>
     <!-- 引入輕量 IndexedDB 庫 Dexie.js 以支援大容量儲存 -->
     <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.js"></script>
     <style>
@@ -155,7 +155,7 @@
         .page-btn { padding: 4px 8px; border: 1px solid var(--border); background: white; border-radius: 4px; cursor: pointer; }
         .page-btn.active { background: var(--primary); color: white; font-weight: bold; }
 
-        /* 專為 iOS Safari 全面開放雙指縮放 (Pinch-to-zoom) 的 Modal 樣式 */
+        /* iOS/iPad 專用 JS 雙指滑動 + 平移縮放 Modal 容器 */
         .image-modal {
             display: none;
             position: fixed;
@@ -163,47 +163,49 @@
             left: 0; top: 0;
             width: 100vw; height: 100vh;
             background-color: rgba(0, 0, 0, 0.95);
-            padding: 60px 10px 20px 10px;
-            overflow: auto; /* 允許在彈窗中拉開滑動 */
-            -webkit-overflow-scrolling: touch;
-            touch-action: manipulation; /* 啟用 iOS Safari 原生縮放手勢 */
+            overflow: hidden;
+            touch-action: none; /* 防止 Safari 底層捲動 */
         }
-        
-        .modal-wrapper {
+
+        .modal-viewport {
+            width: 100%;
+            height: 100%;
             display: flex;
-            flex-direction: column;
             align-items: center;
             justify-content: center;
-            min-height: 100%;
-            width: 100%;
+            position: relative;
         }
 
         .image-modal-content { 
-            max-width: 100%; 
-            height: auto;
+            max-width: 90vw; 
+            max-height: 80vh; 
             border-radius: 8px; 
             object-fit: contain; 
             box-shadow: 0 0 20px rgba(255,255,255,0.2);
-            transition: transform 0.2s ease-out;
-            transform-origin: center center;
-            touch-action: manipulation;
+            will-change: transform;
+            user-select: none;
+            -webkit-user-drag: none;
         }
 
         .image-modal-caption { 
+            position: absolute;
+            bottom: 25px;
+            left: 50%;
+            transform: translateX(-50%);
             color: #ffffff; 
-            margin-top: 15px; 
-            font-size: 0.9em; 
+            font-size: 0.85em; 
             text-align: center; 
-            background: rgba(255,255,255,0.2); 
+            background: rgba(0, 0, 0, 0.6); 
             padding: 8px 16px; 
             border-radius: 20px;
             max-width: 90%;
+            pointer-events: none;
         }
 
         .modal-controls {
             position: fixed;
-            top: 15px;
-            right: 15px;
+            top: 20px;
+            right: 20px;
             display: flex;
             gap: 8px;
             z-index: 1000000;
@@ -213,7 +215,7 @@
             background: rgba(255,255,255,0.25);
             color: white;
             border: 1px solid rgba(255,255,255,0.5);
-            padding: 8px 12px;
+            padding: 8px 14px;
             font-size: 0.9em;
             font-weight: bold;
             border-radius: 20px;
@@ -276,7 +278,7 @@
 <body>
 
 <div class="container">
-    <h2 class="no-print">🏫 學生觀察記錄與報告系統 (iOS 雙指縮放極速版)</h2>
+    <h2 class="no-print">🏫 學生觀察記錄與報告系統 (iOS手勢強效優化版)</h2>
 
     <!-- 1. 選擇班別與學生區塊 -->
     <div class="card no-print" id="sec-students">
@@ -471,7 +473,7 @@
         </div>
 
         <div class="photo-upload-area">
-            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷/行為相片 (支援雙指拉開放大與按鈕放大)：</label>
+            <label style="font-weight:bold; font-size:0.85em; display:block; margin-bottom:6px;">📷 拍攝或上傳試卷/行為相片 (支援 iPad 雙指順暢放大)：</label>
             <input type="file" id="photoInput" accept="image/*" capture="environment" onchange="handlePhoto(event)">
             <img id="photoPreview" class="photo-preview" alt="相片預覽">
             <input type="text" id="photoNoteInput" placeholder="照片佐證說明 (例: 第3題 bed 寫成 deb)" style="margin-top:8px; display:none;">
@@ -561,14 +563,14 @@
     </div>
 </div>
 
-<!-- iOS 原生雙指手勢 + 快捷按鈕縮放模組 -->
+<!-- 專為 iOS / iPad 手勢設計的 JS 觸控放大對應模組 -->
 <div id="imageModal" class="image-modal">
     <div class="modal-controls">
-        <button type="button" class="modal-btn" onclick="zoomInModalImage(event)">➕ 放大 1.5x</button>
-        <button type="button" class="modal-btn" onclick="resetModalImageZoom(event)">🔄 重置大小</button>
+        <button type="button" class="modal-btn" onclick="zoomInModalImage(event)">➕ 放大</button>
+        <button type="button" class="modal-btn" onclick="resetModalImageZoom(event)">🔄 重置</button>
         <button type="button" class="modal-btn modal-btn-close" onclick="closeImageModal(event)">✕ 關閉</button>
     </div>
-    <div class="modal-wrapper">
+    <div class="modal-viewport" id="modalViewport">
         <img id="imageModalImg" class="image-modal-content" src="" alt="放大照片">
         <div id="imageModalCaption" class="image-modal-caption"></div>
     </div>
@@ -632,13 +634,12 @@
     let studentsDetail = JSON.parse(localStorage.getItem('sen_students_list')) || generateDefaultStudents();
     let currentSelectedStudentId = 'ALL';
     
-    let currentFreq = 2; // 0-4
-    let currentSev = 2;  // 1-3
+    let currentFreq = 2; 
+    let currentSev = 2;  
 
     let selectedTags = new Map();
     let currentBase64Image = "";
     let currentPage = 1;
-    let currentModalScale = 1.0;
 
     function saveAllSettings() {
         localStorage.setItem('sen_class_list', JSON.stringify(classList));
@@ -1149,11 +1150,22 @@
         alert('✏️ 紀錄已成功更新！');
     }
 
-    /* 📱 專為 iOS 開放原生手勢與手動縮放機制 */
+    /* 📱 iOS/iPad 專用 JS 手勢追蹤（雙指拉開 Pinch-Zoom & 單指 Drag 平移） */
+    let scale = 1;
+    let pointX = 0, pointY = 0;
+    let startPinchDist = 0;
+    let startScale = 1;
+    let startX = 0, startY = 0;
+    let isDragging = false;
+    let lastTap = 0;
+
+    function updateTransform() {
+        const img = document.getElementById('imageModalImg');
+        img.style.transform = `translate(${pointX}px, ${pointY}px) scale(${scale})`;
+    }
+
     function openImageModal(src, caption, event) {
-        if (event) {
-            event.stopPropagation();
-        }
+        if (event) event.stopPropagation();
         if (!src) return;
 
         const modal = document.getElementById('imageModal');
@@ -1161,33 +1173,88 @@
         const modalCaption = document.getElementById('imageModalCaption');
 
         modalImg.src = src;
-        modalCaption.innerText = caption || '佐證照片放大 (支援 iPad/iPhone 雙指拉開放大與長按)';
+        modalCaption.innerText = caption || '雙指拉開放大 / 單指移動 (可點擊按鈕放大)';
         
-        currentModalScale = 1.0;
-        modalImg.style.transform = `scale(${currentModalScale})`;
+        scale = 1;
+        pointX = 0;
+        pointY = 0;
+        updateTransform();
 
         modal.style.display = 'block';
     }
 
     function zoomInModalImage(event) {
         if (event) event.stopPropagation();
-        const modalImg = document.getElementById('imageModalImg');
-        currentModalScale += 0.5;
-        modalImg.style.transform = `scale(${currentModalScale})`;
+        scale = Math.min(scale + 0.5, 5);
+        updateTransform();
     }
 
     function resetModalImageZoom(event) {
         if (event) event.stopPropagation();
-        const modalImg = document.getElementById('imageModalImg');
-        currentModalScale = 1.0;
-        modalImg.style.transform = `scale(${currentModalScale})`;
+        scale = 1;
+        pointX = 0;
+        pointY = 0;
+        updateTransform();
     }
 
     function closeImageModal(event) {
         if (event) event.stopPropagation();
-        const modal = document.getElementById('imageModal');
-        modal.style.display = 'none';
+        document.getElementById('imageModal').style.display = 'none';
     }
+
+    // 初始化 iOS 專屬觸控事件捕捉
+    const viewport = document.getElementById('modalViewport');
+
+    viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 2) {
+            // 雙指 Pinch 手勢起點計算
+            startPinchDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            startScale = scale;
+        } else if (e.touches.length === 1) {
+            // 單指 Drag 起點
+            isDragging = true;
+            startX = e.touches[0].clientX - pointX;
+            startY = e.touches[0].clientY - pointY;
+
+            // 雙擊快速放大 / 重置
+            const now = new Date().getTime();
+            if (now - lastTap < 300) {
+                scale = scale > 1.2 ? 1 : 2.5;
+                if (scale === 1) { pointX = 0; pointY = 0; }
+                updateTransform();
+            }
+            lastTap = now;
+        }
+    }, { passive: false });
+
+    viewport.addEventListener('touchmove', (e) => {
+        e.preventDefault(); // 強制阻擋 iOS 原生頁面捲動
+
+        if (e.touches.length === 2) {
+            // 雙指動態拉伸放大 / 縮小
+            const currentDist = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            if (startPinchDist > 0) {
+                scale = Math.min(Math.max(startScale * (currentDist / startPinchDist), 0.8), 5);
+                updateTransform();
+            }
+        } else if (e.touches.length === 1 && isDragging && scale > 1) {
+            // 放大後的單指順暢平移
+            pointX = e.touches[0].clientX - startX;
+            pointY = e.touches[0].clientY - startY;
+            updateTransform();
+        }
+    }, { passive: false });
+
+    viewport.addEventListener('touchend', (e) => {
+        if (e.touches.length < 2) startPinchDist = 0;
+        if (e.touches.length === 0) isDragging = false;
+    });
 
     /* 📄 🖨️ PDF 匯出 / 直接列印模組 */
     async function exportToPDF() {
